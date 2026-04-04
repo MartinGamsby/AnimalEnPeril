@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOID RUNNER</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; overflow: hidden; }
+canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+// ============================================================
+// VOID RUNNER - A Gravity-Flipping Neon Platformer
+// ============================================================
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// ---- CONFIG ----
+const C = {
+  TILE: 32,
+  GRAVITY: 0.55,
+  MAX_FALL: 11,
+  PLAYER_SPEED: 3.8,
+  JUMP_FORCE: 10.5,
+  WALL_JUMP_X: 6.5,
+  WALL_JUMP_Y: 10,
+  WALL_SLIDE_SPEED: 1.8,
+  DASH_SPEED: 14,
+  DASH_FRAMES: 8,
+  DASH_COOLDOWN: 50,
+  SHIFT_DURATION: 130,
+  SHIFT_COOLDOWN: 300,
+  CAM_LERP: 0.09,
+  COYOTE: 7,
+  JUMP_BUFFER: 7,
+  WALL_LOCK: 7,
+};
+
+const COL = {
+  BG: '#080816',
+  CYAN: '#0ff',
+  MAGENTA: '#f0f',
+  YELLOW: '#ffe033',
+  RED: '#ff3344',
+  GREEN: '#33ff88',
+  WALL: '#1a1a2e',
+  WALL_EDGE: '#0af',
+  DIM_A: '#0088cc',
+  DIM_B: '#cc44ff',
+  PORTAL: '#88ffee',
+  VOID: '#220022',
+  SPIKE: '#ff2244',
+};
+
+// ---- RESIZE ----
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ---- AUDIO ENGINE ----
+const Audio = {
+  ctx: null,
+  init() {
+    if (this.ctx) return;
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  },
+  _osc(type, freq, dur, vol = 0.15) {
+    if (!this.ctx) return;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, this.ctx.currentTime);
+    g.gain.setValueAtTime(vol, this.ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
+    o.connect(g).connect(this.ctx.destination);
+    o.start(); o.stop(this.ctx.currentTime + dur);
+    return o;
+  },
+  jump() {
+    const o = this._osc('sine', 320, 0.12, 0.1);
+    if (o) o.frequency.exponentialRampToValueAtTime(580, this.ctx.currentTime + 0.1);
+  },
+  flip() {
+    this._osc('triangle', 120, 0.25, 0.12);
+    const o = this._osc('sine', 200, 0.2, 0.08);
+    if (o) o.frequency.exponentialRampToValueAtTime(500, this.ctx.currentTime + 0.18);
+  },
+  collect() {
+    const t = this.ctx ? this.ctx.currentTime : 0;
+    if (!this.ctx) return;
+    [523, 659, 784].forEach((f, i) => {
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.1, t + i * 0.06);
+      g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.06 + 0.15);
+      o.connect(g).connect(this.ctx.destination);
+      o.start(t + i * 0.06); o.stop(t + i * 0.06 + 0.15);
+    });
+  },
+  dash() {
+    if (!this.ctx) return;
+    const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.08, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const s = this.ctx.createBufferSource();
+    const g = this.ctx.createGain();
+    const f = this.ctx.createBiquadFilter();
+    s.buffer = buf; f.type = 'bandpass'; f.frequency.value = 1500;
+    g.gain.setValueAtTime(0.12, this.ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+    s.connect(f).connect(g).connect(this.ctx.destination);
+    s.start();
+  },
+  die() {
+    const o = this._osc('sawtooth', 200, 0.4, 0.15);
+    if (o) o.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.35);
+    this._osc('square', 80, 0.3, 0.05);
+  },
+  portal() {
+    [262, 330, 392, 523].forEach((f, i) => {
+      if (!this.ctx) return;
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      const t = this.ctx.currentTime + i * 0.1;
+      g.gain.setValueAtTime(0.08, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      o.connect(g).connect(this.ctx.destination);
+      o.start(t); o.stop(t + 0.5);
+    });
+  },
+  shift() {
+    const o = this._osc('square', 150, 0.2, 0.08);
+    if (o) {
+      o.frequency.setValueAtTime(150, this.ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.05);
+      o.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.18);
+    }
+  },
+  error() { this._osc('square', 100, 0.15, 0.08); },
+  levelStart() {
+    [262, 330, 392, 523].forEach((f, i) => {
+      if (!this.ctx) return;
+      const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      const t = this.ctx.currentTime + i * 0.12;
+      g.gain.setValueAtTime(0.06, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      o.connect(g).connect(this.ctx.destination);
+      o.start(t); o.stop(t + 0.3);
+    });
+  },
+};
+
+// ---- INPUT ----
+const input = { keys: {}, just: new Set() };
+window.addEventListener('keydown', e => {
+  if (!input.keys[e.code]) input.just.add(e.code);
+  input.keys[e.code] = true;
+  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+});
+window.addEventListener('keyup', e => { input.keys[e.code] = false; });
+window.addEventListener('contextmenu', e => e.preventDefault());
+function justPressed(code) { return input.just.has(code); }
+function held(code) { return !!input.keys[code]; }
+
+// ---- UTILS ----
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+function rng(lo, hi) { return lo + Math.random() * (hi - lo); }
+
+// ---- PARTICLES ----
+const MAX_PARTICLES = 400;
+const particles = [];
+for (let i = 0; i < MAX_PARTICLES; i++) particles.push({ active: false });
+
+function emitParticle(x, y, vx, vy, life, color, size) {
+  for (const p of particles) {
+    if (p.active) continue;
+    p.x = x; p.y = y; p.vx = vx; p.vy = vy;
+    p.life = p.maxLife = life; p.color = color; p.size = size;
+    p.active = true;
+    return p;
+  }
+}
+
+function emitBurst(x, y, count, speed, life, color, size) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = rng(speed * 0.3, speed);
+    emitParticle(x + rng(-3, 3), y + rng(-3, 3), Math.cos(a) * s, Math.sin(a) * s, life + rng(-5, 5)|0, color, rng(size * 0.5, size));
+  }
+}
+
+function updateParticles() {
+  for (const p of particles) {
+    if (!p.active) continue;
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.03;
+    p.vx *= 0.98;
+    p.life--;
+    if (p.life <= 0) p.active = false;
+  }
+}
+
+function drawParticles(cx, cy) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const p of particles) {
+    if (!p.active) continue;
+    const alpha = p.life / p.maxLife;
+    ctx.globalAlpha = alpha * 0.8;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x - cx, p.y - cy, p.size * (0.5 + alpha * 0.5), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ---- CAMERA ----
+const cam = { x: 0, y: 0, shakeX: 0, shakeY: 0, shakeInt: 0 };
+
+function updateCam(tx, ty, lw, lh) {
+  const cx = tx - W / 2, cy = ty - H / 2;
+  cam.x = lerp(cam.x, clamp(cx, 0, Math.max(0, lw - W)), C.CAM_LERP);
+  cam.y = lerp(cam.y, clamp(cy, 0, Math.max(0, lh - H)), C.CAM_LERP);
+  cam.shakeInt *= 0.88;
+  cam.shakeX = (Math.random() - 0.5) * cam.shakeInt;
+  cam.shakeY = (Math.random() - 0.5) * cam.shakeInt;
+}
+
+function shake(int) { cam.shakeInt = Math.max(cam.shakeInt, int); }
+
+// ---- TILE TYPES ----
+// 0=air, 1=solid, 2=dimA only, 3=dimB only, 4=spike_up, 5=spike_down,
+// 6=orb, 7=start, 8=portal, 9=void, a=spike_left, b=spike_right,
+// c=one_way, d=moving_plat_h, e=moving_plat_v
+const TILE_CHARS = '0123456789abcde';
+
+// ---- LEVELS ----
+const levels = [];
+
+function makeLevel(name, cols, rows, reqOrbs, data, extras = {}) {
+  const tiles = [];
+  const orbs = [];
+  let start = { x: 2, y: 2 };
+  let portal = { x: 10, y: 10 };
+  const lasers = extras.lasers || [];
+
+  for (let r = 0; r < rows; r++) {
+    const row = data[r] || '';
+    for (let c = 0; c < cols; c++) {
+      const ch = row[c] || '0';
+      const id = TILE_CHARS.indexOf(ch);
+      tiles[r * cols + c] = id >= 0 ? id : 0;
+      if (ch === '6') { orbs.push({ x: c * C.TILE + C.TILE / 2, y: r * C.TILE + C.TILE / 2, collected: false, bob: Math.random() * Math.PI * 2 }); tiles[r * cols + c] = 0; }
+      if (ch === '7') { start = { x: c * C.TILE + 6, y: r * C.TILE + 2 }; tiles[r * cols + c] = 0; }
+      if (ch === '8') { portal = { x: c * C.TILE + C.TILE / 2, y: r * C.TILE + C.TILE / 2 }; tiles[r * cols + c] = 0; }
+    }
+  }
+
+  levels.push({ name, cols, rows, reqOrbs, tiles, orbs, start, portal, lasers, w: cols * C.TILE, h: rows * C.TILE });
+}
+
+// Level 1: Awakening - teach movement, jumping, gravity flip
+makeLevel("AWAKENING", 50, 18, 3, [
+  "11111111111111111111111111111111111111111111111111",
+  "10000000000000000000000000000000000000000000000001",
+  "10000000000000000000000000000000000000000000000001",
+  "10000000000000000000000060000000000000000000000001",
+  "10000000000000000000011111100000000000000000000001",
+  "1000000600000000000000000000000000000000060000001",
+  "1000011111000000000000000000000000000001111100081",
+  "1000000000000000000000000000000001100000000011111",
+  "1000000000000011000000000000000000000000000000001",
+  "1000000000000000000000000000000000000000000000001",
+  "1700000000000000000000600000000000000000000000001",
+  "1111100000000000001111111000000000000000000000001",
+  "1000000000000000000000000000000011000000000000001",
+  "1000000001100000000000000000000000000011100000001",
+  "1000000000000000000000000000000000000000000000001",
+  "1000000000000000000000000000000000000000000000001",
+  "1000000000000000000000000000000000000000000000001",
+  "11111111111111111111111111111111111111111111111111",
+]);
+
+// Level 2: Duality - teach dimension shift
+makeLevel("DUALITY", 55, 20, 4, [
+  "1111111111111111111111111111111111111111111111111111111",
+  "1000000000000000000000000000000000000000000000000000001",
+  "1000000000000000000000000000000000000000000000000000001",
+  "1000000000000000000000000006000000000000000000000008001",
+  "10000000000000000000000001111000000000000000000001111001",
+  "1000000000006000000000000000000000000000000000000000001",
+  "1000000000111100000000000000000003330000006000000000001",
+  "1000000000000000000000000000000000000000011110000000001",
+  "1000000000000000022200000000000000000000000000000000001",
+  "1000000000000000000000000000000033300000000000000000001",
+  "1700000000000000000000000220000000000000000000000000001",
+  "1111100000000000000000000000000000000000000000000000001",
+  "1000000022200000000000000000000000000000000000000000001",
+  "1000000000000000000000000000000022200000000000000000001",
+  "1000000000000003330000000000000000000000000060000000001",
+  "1000000000000000000000000033300000000000011111000000001",
+  "1000000000000000000000000000000000000000000000000000001",
+  "1000000000000000000000000000000000000000000000000000001",
+  "1000000000000000000000000000000000000000000000000000001",
+  "1111111111111111111111111111111111111111111111111111111",
+]);
+
+// Level 3: Velocity - dash + wall jumps + moving lasers
+makeLevel("VELOCITY", 60, 22, 5, [
+  "111111111111111111111111111111111111111111111111111111111111",
+  "100000000000000000000000000000000000000000000000000000000001",
+  "100000000000000000000000000000000000000000000000000000000001",
+  "100000000000000000000000000000000000000000000000000000000081",
+  "100000000000000000000000000000000000000000000000000000111111",
+  "100000000000000060000000000000000600000000000000000000000001",
+  "100000000001111111100000000000111111000000000000001100000001",
+  "100000000000000000000000000000000000000000000000000010000001",
+  "100000000000000000000000000000000000000000000000000010060001",
+  "100000000000000000001100000000000000001100000000000010111001",
+  "100000000000000000000000000000000000000000000000000010000001",
+  "170000000000000000000000000000000000000000000600000010000001",
+  "111110000000000000000000011000000000000001111110000010000001",
+  "100000000000000000000000000000000000000000000000000010000001",
+  "100001000000000000000000000000000000000000000000000010000001",
+  "100001000000000000000000000000000000000000000000000000000001",
+  "100001000000006000000000000000000000000000000000000000000001",
+  "100001000000111110000000000000000000060000000000000000000001",
+  "100001000000000000000000000000000011111100000000000000000001",
+  "100000000000000000000000000000000000000000000000000000000001",
+  "100000000000000000000000000000000000000000000000000000000001",
+  "111111111111111111111111111111111111111111111111111111111111",
+], {
+  lasers: [
+    { x: 20 * 32, y1: 2 * 32, y2: 19 * 32, speed: 1.5, vertical: true },
+    { x: 35 * 32, y1: 2 * 32, y2: 19 * 32, speed: 2, vertical: true },
+    { x: 48 * 32, y1: 2 * 32, y2: 19 * 32, speed: 1.2, vertical: true },
+  ]
+});
+
+// Level 4: Convergence - all mechanics
+makeLevel("CONVERGENCE", 65, 24, 6, [
+  "11111111111111111111111111111111111111111111111111111111111111111",
+  "10000000000000000000000000000000000000000000000000000000000000001",
+  "10000000000000000000000000000000000000000000000000000000000000001",
+  "10000000000000000000000000000000000000000000000000000000000008001",
+  "10000000000000000000000000000000000000000000000000000000000111001",
+  "10000006000000000000000000000000000000600000000000000000000000001",
+  "10000111110000000000000000000000000011111000000000000000330000001",
+  "10000000000000000000000000000000000000000000000000000000000000001",
+  "10000000000000222000000000000000000000000000003330000000000000001",
+  "10000000000000000000000000000000000000000000000000000000000000001",
+  "10000000000000000000001100000000000000000000000000000022200000001",
+  "17000000000000000000000000000000600000000000000000000000000060001",
+  "11111000000000000000000000000111111000000000000000000000001111001",
+  "10000000000000000000000000000000000000000033300000000000000000001",
+  "10000000000060000000000000000000000000000000000000000000000000001",
+  "10000000011111000000000000000000000000000000000022200000000000001",
+  "10000000000000000000000000000000000000000000000000000000000000001",
+  "10000000000000000000033300000000000000000000000000000000000060001",
+  "10000000000000000000000000000000000000110000000000000000001111101",
+  "10000000000000002220000000000000000000000000000000000000000000001",
+  "10000000000000000000000000000000000000000000000000000000000000001",
+  "10000000000000000000000000000000000000000000000000000000000000001",
+  "10000000000000000000000000000000000000000000000000000000000000001",
+  "11111111111111111111111111111111111111111111111111111111111111111",
+], {
+  lasers: [
+    { x: 25 * 32, y1: 1 * 32, y2: 22 * 32, speed: 1.8, vertical: true },
+    { x: 40 * 32, y1: 1 * 32, y2: 22 * 32, speed: 1.4, vertical: true },
+    { x: 52 * 32, y1: 1 * 32, y2: 22 * 32, speed: 2.2, vertical: true },
+  ]
+});
+
+// Level 5: The Void - final challenge
+makeLevel("THE VOID", 70, 26, 7, [
+  "1111111111111111111111111111111111111111111111111111111111111111111111",
+  "1000000000000000000000000000000000000000000000000000000000000000000001",
+  "1000000000005555000000000000000000000000000000000000000000000000000001",
+  "1000000000000000000000000000000000000000000000000000000000000000000001",
+  "1000000000000000000000000000006000000000000000000000000000000000000001",
+  "1000000060000000000000000000111110000000000000000060000000000000008001",
+  "1000001111100000000000000000000000000000000000001111100000000000011101",
+  "1000000000000000000000000000000000003330000000000000000000000000000001",
+  "1000000000000022200000000000000000000000000000000000000000033300000001",
+  "1000000000000000000000000000000000000000000000000000000000000000000001",
+  "1000000000000000000000110000000000000000000000000000000022200000060001",
+  "1000000000000000000000000000000000000000001100000000000000000001111101",
+  "1700000000000000000000000000006000000000000000000000000000000000000001",
+  "1111100000000000000000000001111110000000000000000000000000000000000001",
+  "1000000000000000000000000000000000000000000000000600000000000000000001",
+  "1000000000060000000000000000000000033300000011111100000000000000000001",
+  "1000000011111100000000000000000000000000000000000000000000000000000001",
+  "1000000000000000003330000000000000000000000000000000000000060000000001",
+  "1000000000000000000000000000000000000000000000000000000011111000000001",
+  "1000000000000000000000000022200000000000000000000000000000000000000001",
+  "1000000000000000000000000000000000000000000000000000000000000000000001",
+  "1000000000000000000000000000000000000060000000000000000000000000000001",
+  "1000000000000000000000000000000000001111100000000000000000000000000001",
+  "1000004444000000000000000000000000000000000000004444000000000000000001",
+  "1000000000000000000000000000000000000000000000000000000000000000000001",
+  "1111111111111111111111111111111111111111111111111111111111111111111111",
+], {
+  lasers: [
+    { x: 18 * 32, y1: 1 * 32, y2: 24 * 32, speed: 2, vertical: true },
+    { x: 30 * 32, y1: 1 * 32, y2: 24 * 32, speed: 1.5, vertical: true },
+    { x: 45 * 32, y1: 1 * 32, y2: 24 * 32, speed: 2.5, vertical: true },
+    { x: 58 * 32, y1: 1 * 32, y2: 24 * 32, speed: 1.8, vertical: true },
+  ]
+});
+
+// ---- GAME STATE ----
+let state = 'TITLE'; // TITLE, PLAYING, DEAD, LEVEL_COMPLETE, WIN
+let levelIdx = 0;
+let level = null;
+let deathTimer = 0;
+let levelCompleteTimer = 0;
+let titleTime = 0;
+let gameTime = 0;
+let deaths = 0;
+
+// ---- PLAYER ----
+const player = {
+  x: 0, y: 0, w: 20, h: 28, vx: 0, vy: 0,
+  gravDir: 1, grounded: false, facing: 1,
+  wallSliding: false, wallDir: 0, wallLock: 0,
+  dashing: false, dashTimer: 0, dashCooldown: 0,
+  shifted: false, shiftTimer: 0, shiftCooldown: 0,
+  coyote: 0, jumpBuffer: 0,
+  orbs: 0, dead: false,
+  spawnX: 0, spawnY: 0,
+  trail: [],
+};
+
+function resetPlayer() {
+  player.x = level.start.x; player.y = level.start.y;
+  player.vx = player.vy = 0;
+  player.gravDir = 1; player.grounded = false; player.facing = 1;
+  player.wallSliding = false; player.wallDir = 0; player.wallLock = 0;
+  player.dashing = false; player.dashTimer = 0; player.dashCooldown = 0;
+  player.shifted = false; player.shiftTimer = 0; player.shiftCooldown = 0;
+  player.coyote = 0; player.jumpBuffer = 0;
+  player.dead = false; player.trail = [];
+  player.spawnX = level.start.x; player.spawnY = level.start.y;
+}
+
+function loadLevel(idx) {
+  levelIdx = idx;
+  level = levels[idx];
+  player.orbs = 0;
+  for (const o of level.orbs) o.collected = false;
+  resetPlayer();
+  cam.x = player.x - W / 2; cam.y = player.y - H / 2;
+  // Reset particles
+  for (const p of particles) p.active = false;
+}
+
+// ---- TILE HELPERS ----
+function getTile(col, row) {
+  if (col < 0 || col >= level.cols || row < 0 || row >= level.rows) return 1;
+  return level.tiles[row * level.cols + col];
+}
+
+function isSolid(col, row) {
+  const t = getTile(col, row);
+  if (t === 1) return true;
+  if (t === 2 && !player.shifted) return true;
+  if (t === 3 && player.shifted) return true;
+  if (t === 12) return false; // one-way handled separately
+  return false;
+}
+
+function isSpike(col, row) {
+  const t = getTile(col, row);
+  return t === 4 || t === 5 || t === 10 || t === 11;
+}
+
+function isVoid(col, row) {
+  return getTile(col, row) === 9;
+}
+
+// ---- COLLISION ----
+function collidesWithLevel(x, y, w, h) {
+  const left = Math.floor(x / C.TILE);
+  const right = Math.floor((x + w - 1) / C.TILE);
+  const top = Math.floor(y / C.TILE);
+  const bot = Math.floor((y + h - 1) / C.TILE);
+  for (let r = top; r <= bot; r++) {
+    for (let c = left; c <= right; c++) {
+      if (isSolid(c, r)) return true;
+    }
+  }
+  return false;
+}
+
+function hitsHazard(x, y, w, h) {
+  const left = Math.floor(x / C.TILE);
+  const right = Math.floor((x + w - 1) / C.TILE);
+  const top = Math.floor(y / C.TILE);
+  const bot = Math.floor((y + h - 1) / C.TILE);
+  for (let r = top; r <= bot; r++) {
+    for (let c = left; c <= right; c++) {
+      if (isSpike(c, r) || isVoid(c, r)) return true;
+    }
+  }
+  return false;
+}
+
+// ---- LASER UPDATE ----
+function updateLasers() {
+  if (!level.lasers) return;
+  for (const l of level.lasers) {
+    if (!l._t) l._t = Math.random() * Math.PI * 2;
+    l._t += 0.02 * l.speed;
+    if (l.vertical) {
+      l.currentY = l.y1 + (l.y2 - l.y1) * (0.5 + 0.5 * Math.sin(l._t));
+    }
+  }
+}
+
+function laserHitsPlayer() {
+  if (!level.lasers) return false;
+  const px = player.x, py = player.y, pw = player.w, ph = player.h;
+  for (const l of level.lasers) {
+    if (l.vertical) {
+      const lx = l.x;
+      const ly = l.currentY || l.y1;
+      // Laser is a vertical beam at x, from top of level to currentY
+      if (px + pw > lx - 3 && px < lx + 3) {
+        if (py + ph > ly - 200 && py < ly + 4) return true;
+      }
+    }
+  }
+  return false;
+}
+
+// ---- PLAYER UPDATE ----
+function updatePlayer() {
+  const p = player;
+  if (p.dead) return;
+
+  // Horizontal input
+  let moveX = 0;
+  if (p.wallLock > 0) { p.wallLock--; }
+  else {
+    if (held('ArrowLeft') || held('KeyA')) moveX = -1;
+    if (held('ArrowRight') || held('KeyD')) moveX = 1;
+  }
+
+  if (moveX !== 0) p.facing = moveX;
+
+  // Dash
+  if (p.dashCooldown > 0) p.dashCooldown--;
+  if ((justPressed('KeyE') || justPressed('ShiftRight')) && p.dashCooldown <= 0 && !p.dashing) {
+    p.dashing = true;
+    p.dashTimer = C.DASH_FRAMES;
+    p.dashCooldown = C.DASH_COOLDOWN;
+    p.vy = 0;
+    Audio.dash();
+    shake(4);
+  }
+
+  if (p.dashing) {
+    p.vx = C.DASH_SPEED * p.facing;
+    p.vy = 0;
+    p.dashTimer--;
+    // Emit trail
+    p.trail.push({ x: p.x, y: p.y, life: 12 });
+    emitParticle(p.x + p.w / 2, p.y + p.h / 2, -p.facing * rng(1, 3), rng(-1, 1), 15, COL.CYAN, rng(2, 4));
+    if (p.dashTimer <= 0) {
+      p.dashing = false;
+      p.vx = p.facing * C.PLAYER_SPEED;
+    }
+  } else {
+    p.vx = moveX * C.PLAYER_SPEED;
+  }
+
+  // Gravity
+  if (!p.dashing) {
+    p.vy += C.GRAVITY * p.gravDir;
+    p.vy = clamp(p.vy, -C.MAX_FALL, C.MAX_FALL);
+  }
+
+  // Wall slide
+  p.wallSliding = false;
+  if (!p.grounded && !p.dashing && moveX !== 0) {
+    // Check for wall in movement direction
+    const checkX = moveX > 0 ? p.x + p.w + 1 : p.x - 2;
+    const midR = Math.floor((p.y + p.h / 2) / C.TILE);
+    const checkC = Math.floor(checkX / C.TILE);
+    if (isSolid(checkC, midR)) {
+      p.wallSliding = true;
+      p.wallDir = moveX;
+      const slideMax = C.WALL_SLIDE_SPEED * p.gravDir;
+      if (p.gravDir > 0 && p.vy > slideMax) p.vy = slideMax;
+      if (p.gravDir < 0 && p.vy < slideMax) p.vy = slideMax;
+      if (gameTime % 4 === 0) {
+        emitParticle(moveX > 0 ? p.x + p.w : p.x, p.y + p.h * 0.7, rng(-0.5, 0.5), -p.gravDir * rng(0.5, 1.5), 12, '#fff', 1.5);
+      }
+    }
+  }
+
+  // Jump buffer
+  if (justPressed('Space') || justPressed('ArrowUp') || justPressed('KeyW')) {
+    p.jumpBuffer = C.JUMP_BUFFER;
+  }
+  if (p.jumpBuffer > 0) p.jumpBuffer--;
+
+  // Coyote time
+  if (p.grounded) p.coyote = C.COYOTE;
+  else if (p.coyote > 0) p.coyote--;
+
+  // Jump / Gravity flip
+  if (p.jumpBuffer > 0) {
+    if (p.coyote > 0 && !p.dashing) {
+      // Normal jump
+      p.vy = -C.JUMP_FORCE * p.gravDir;
+      p.grounded = false;
+      p.coyote = 0;
+      p.jumpBuffer = 0;
+      Audio.jump();
+      emitBurst(p.x + p.w / 2, p.y + (p.gravDir > 0 ? p.h : 0), 6, 2, 12, '#fff', 2);
+    } else if (p.wallSliding && !p.dashing) {
+      // Wall jump
+      p.vx = C.WALL_JUMP_X * -p.wallDir;
+      p.vy = -C.WALL_JUMP_Y * p.gravDir;
+      p.wallLock = C.WALL_LOCK;
+      p.facing = -p.wallDir;
+      p.jumpBuffer = 0;
+      p.wallSliding = false;
+      Audio.jump();
+      emitBurst(p.wallDir > 0 ? p.x + p.w : p.x, p.y + p.h / 2, 8, 3, 15, COL.CYAN, 2);
+    } else if (!p.grounded && p.coyote <= 0 && !p.wallSliding) {
+      // Gravity flip (airborne, no coyote, no wall)
+      p.gravDir *= -1;
+      p.vy = 3 * p.gravDir;
+      p.jumpBuffer = 0;
+      Audio.flip();
+      shake(5);
+      emitBurst(p.x + p.w / 2, p.y + p.h / 2, 12, 3, 18, COL.MAGENTA, 3);
+    }
+  }
+
+  // Dimension shift
+  if (p.shiftCooldown > 0) p.shiftCooldown--;
+  if (p.shifted) {
+    p.shiftTimer--;
+    if (p.shiftTimer <= 0) {
+      // End shift - check safety
+      p.shifted = false;
+      if (collidesWithLevel(p.x, p.y, p.w, p.h)) {
+        // Unsafe, push out or re-shift
+        p.shifted = true;
+        p.shiftTimer = 30; // Extend slightly
+      } else {
+        Audio.shift();
+      }
+    }
+  }
+  if (justPressed('ShiftLeft') && p.shiftCooldown <= 0 && !p.shifted) {
+    // Test if shift is safe
+    const wasShifted = p.shifted;
+    p.shifted = true;
+    if (collidesWithLevel(p.x, p.y, p.w, p.h)) {
+      p.shifted = wasShifted;
+      Audio.error();
+    } else {
+      p.shiftTimer = C.SHIFT_DURATION;
+      p.shiftCooldown = C.SHIFT_COOLDOWN;
+      Audio.shift();
+      shake(3);
+      emitBurst(p.x + p.w / 2, p.y + p.h / 2, 15, 4, 20, COL.DIM_B, 3);
+    }
+  }
+
+  // Move X
+  p.x += p.vx;
+  // Resolve X collisions
+  if (collidesWithLevel(p.x, p.y, p.w, p.h)) {
+    if (p.vx > 0) {
+      p.x = Math.floor((p.x + p.w) / C.TILE) * C.TILE - p.w - 0.01;
+    } else if (p.vx < 0) {
+      p.x = Math.ceil(p.x / C.TILE) * C.TILE + 0.01;
+    }
+    p.vx = 0;
+  }
+
+  // Move Y
+  const prevY = p.y;
+  p.y += p.vy;
+  p.grounded = false;
+  // Resolve Y collisions
+  if (collidesWithLevel(p.x, p.y, p.w, p.h)) {
+    if (p.vy * p.gravDir > 0) {
+      // Landed
+      p.grounded = true;
+      if (p.gravDir > 0) {
+        p.y = Math.floor((p.y + p.h) / C.TILE) * C.TILE - p.h - 0.01;
+      } else {
+        p.y = Math.ceil(p.y / C.TILE) * C.TILE + 0.01;
+      }
+      // Reset dash cooldown on land
+      if (p.dashCooldown > 15) p.dashCooldown = 15;
+    } else {
+      // Hit ceiling/floor opposite gravity
+      if (p.gravDir > 0) {
+        p.y = Math.ceil(p.y / C.TILE) * C.TILE + 0.01;
+      } else {
+        p.y = Math.floor((p.y + p.h) / C.TILE) * C.TILE - p.h - 0.01;
+      }
+    }
+    p.vy = 0;
+  }
+
+  // Hazards
+  if (hitsHazard(p.x + 2, p.y + 2, p.w - 4, p.h - 4) || laserHitsPlayer()) {
+    killPlayer();
+  }
+
+  // Collectibles
+  for (const orb of level.orbs) {
+    if (orb.collected) continue;
+    const dx = (p.x + p.w / 2) - orb.x;
+    const dy = (p.y + p.h / 2) - orb.y;
+    if (dx * dx + dy * dy < 400) {
+      orb.collected = true;
+      p.orbs++;
+      Audio.collect();
+      emitBurst(orb.x, orb.y, 20, 4, 25, COL.YELLOW, 3);
+    }
+  }
+
+  // Portal
+  const portalActive = p.orbs >= level.reqOrbs;
+  if (portalActive) {
+    const dx = (p.x + p.w / 2) - level.portal.x;
+    const dy = (p.y + p.h / 2) - level.portal.y;
+    if (dx * dx + dy * dy < 500) {
+      Audio.portal();
+      state = 'LEVEL_COMPLETE';
+      levelCompleteTimer = 90;
+      emitBurst(level.portal.x, level.portal.y, 40, 6, 35, COL.PORTAL, 4);
+      shake(8);
+    }
+  }
+
+  // Trail update
+  for (let i = p.trail.length - 1; i >= 0; i--) {
+    p.trail[i].life--;
+    if (p.trail[i].life <= 0) p.trail.splice(i, 1);
+  }
+
+  // Out of bounds
+  if (p.y > level.h + 100 || p.y < -100) killPlayer();
+}
+
+function killPlayer() {
+  if (player.dead) return;
+  player.dead = true;
+  deaths++;
+  Audio.die();
+  shake(12);
+  emitBurst(player.x + player.w / 2, player.y + player.h / 2, 35, 5, 30, COL.RED, 3);
+  emitBurst(player.x + player.w / 2, player.y + player.h / 2, 20, 3, 25, COL.MAGENTA, 2);
+  state = 'DEAD';
+  deathTimer = 50;
+}
+
+// ---- DRAWING ----
+function drawBG() {
+  // Background
+  const bg = player.shifted ? '#0e0820' : COL.BG;
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = player.shifted ? 'rgba(180,60,255,0.06)' : 'rgba(0,180,255,0.04)';
+  ctx.lineWidth = 1;
+  const sx = -(cam.x % C.TILE);
+  const sy = -(cam.y % C.TILE);
+  for (let x = sx; x < W; x += C.TILE) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = sy; y < H; y += C.TILE) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // BG particles
+  if (gameTime % 3 === 0) {
+    emitParticle(cam.x + rng(0, W), cam.y + H + 10, rng(-0.3, 0.3), rng(-0.8, -0.3), 80, player.shifted ? 'rgba(180,60,255,0.3)' : 'rgba(0,180,255,0.2)', rng(1, 2.5));
+  }
+}
+
+function drawTiles() {
+  const startC = Math.max(0, Math.floor(cam.x / C.TILE));
+  const endC = Math.min(level.cols - 1, Math.ceil((cam.x + W) / C.TILE));
+  const startR = Math.max(0, Math.floor(cam.y / C.TILE));
+  const endR = Math.min(level.rows - 1, Math.ceil((cam.y + H) / C.TILE));
+  const ox = -cam.x + cam.shakeX;
+  const oy = -cam.y + cam.shakeY;
+
+  for (let r = startR; r <= endR; r++) {
+    for (let c = startC; c <= endC; c++) {
+      const t = getTile(c, r);
+      const tx = c * C.TILE + ox;
+      const ty = r * C.TILE + oy;
+
+      if (t === 1) {
+        // Solid wall
+        ctx.fillStyle = COL.WALL;
+        ctx.fillRect(tx, ty, C.TILE, C.TILE);
+        // Edge highlights
+        ctx.strokeStyle = player.shifted ? 'rgba(180,60,255,0.4)' : 'rgba(0,170,255,0.35)';
+        ctx.lineWidth = 1.5;
+        // Top edge
+        if (!isSolid(c, r - 1)) {
+          ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx + C.TILE, ty); ctx.stroke();
+        }
+        // Bottom edge
+        if (!isSolid(c, r + 1)) {
+          ctx.beginPath(); ctx.moveTo(tx, ty + C.TILE); ctx.lineTo(tx + C.TILE, ty + C.TILE); ctx.stroke();
+        }
+        // Left edge
+        if (!isSolid(c - 1, r)) {
+          ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx, ty + C.TILE); ctx.stroke();
+        }
+        // Right edge
+        if (!isSolid(c + 1, r)) {
+          ctx.beginPath(); ctx.moveTo(tx + C.TILE, ty); ctx.lineTo(tx + C.TILE, ty + C.TILE); ctx.stroke();
+        }
+      } else if (t === 2) {
+        // Dim A platform
+        if (player.shifted) {
+          // Ghost
+          ctx.strokeStyle = 'rgba(0,140,220,0.25)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.strokeRect(tx + 1, ty + 1, C.TILE - 2, C.TILE - 2);
+          ctx.setLineDash([]);
+        } else {
+          ctx.fillStyle = 'rgba(0,100,180,0.5)';
+          ctx.fillRect(tx, ty, C.TILE, C.TILE);
+          ctx.strokeStyle = COL.DIM_A;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(tx + 1, ty + 1, C.TILE - 2, C.TILE - 2);
+        }
+      } else if (t === 3) {
+        // Dim B platform
+        if (!player.shifted) {
+          // Ghost
+          ctx.strokeStyle = 'rgba(200,60,255,0.15)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.strokeRect(tx + 1, ty + 1, C.TILE - 2, C.TILE - 2);
+          ctx.setLineDash([]);
+        } else {
+          ctx.fillStyle = 'rgba(150,30,200,0.5)';
+          ctx.fillRect(tx, ty, C.TILE, C.TILE);
+          ctx.strokeStyle = COL.DIM_B;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(tx + 1, ty + 1, C.TILE - 2, C.TILE - 2);
+        }
+      } else if (t === 4) {
+        // Spike up
+        ctx.fillStyle = COL.SPIKE;
+        ctx.beginPath();
+        ctx.moveTo(tx + 2, ty + C.TILE);
+        ctx.lineTo(tx + C.TILE / 2, ty + 6);
+        ctx.lineTo(tx + C.TILE - 2, ty + C.TILE);
+        ctx.fill();
+        // Glow
+        ctx.save();
+        ctx.globalAlpha = 0.3;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = COL.SPIKE;
+        ctx.beginPath();
+        ctx.moveTo(tx - 1, ty + C.TILE + 2);
+        ctx.lineTo(tx + C.TILE / 2, ty + 2);
+        ctx.lineTo(tx + C.TILE + 1, ty + C.TILE + 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (t === 5) {
+        // Spike down
+        ctx.fillStyle = COL.SPIKE;
+        ctx.beginPath();
+        ctx.moveTo(tx + 2, ty);
+        ctx.lineTo(tx + C.TILE / 2, ty + C.TILE - 6);
+        ctx.lineTo(tx + C.TILE - 2, ty);
+        ctx.fill();
+      } else if (t === 9) {
+        // Void zone
+        ctx.fillStyle = COL.VOID;
+        ctx.fillRect(tx, ty, C.TILE, C.TILE);
+        // Animated noise
+        for (let i = 0; i < 3; i++) {
+          const nx = tx + Math.sin(gameTime * 0.1 + c + i) * 8 + 16;
+          const ny = ty + Math.cos(gameTime * 0.13 + r + i) * 8 + 16;
+          ctx.fillStyle = `rgba(${100 + Math.sin(gameTime * 0.05 + i) * 50|0},0,${100 + Math.cos(gameTime * 0.07 + i) * 50|0},0.4)`;
+          ctx.fillRect(nx - 3, ny - 3, 6, 6);
+        }
+      }
+    }
+  }
+}
+
+function drawLasers() {
+  if (!level.lasers) return;
+  const ox = -cam.x + cam.shakeX;
+  const oy = -cam.y + cam.shakeY;
+
+  for (const l of level.lasers) {
+    if (l.vertical) {
+      const lx = l.x + ox;
+      const ly = (l.currentY || l.y1) + oy;
+
+      // Glow
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(255,50,50,0.15)';
+      ctx.lineWidth = 12;
+      ctx.beginPath(); ctx.moveTo(lx, ly - 200); ctx.lineTo(lx, ly); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,80,80,0.3)';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(lx, ly - 200); ctx.lineTo(lx, ly); ctx.stroke();
+      ctx.restore();
+
+      // Core
+      ctx.strokeStyle = COL.RED;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(lx, ly - 200); ctx.lineTo(lx, ly); ctx.stroke();
+
+      // Emitter ball
+      ctx.fillStyle = COL.RED;
+      ctx.beginPath(); ctx.arc(lx, ly, 5 + Math.sin(gameTime * 0.2) * 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.4;
+      ctx.fillStyle = '#ff8888';
+      ctx.beginPath(); ctx.arc(lx, ly, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+function drawOrbs() {
+  const ox = -cam.x + cam.shakeX;
+  const oy = -cam.y + cam.shakeY;
+
+  for (const orb of level.orbs) {
+    if (orb.collected) continue;
+    const bx = orb.x + ox;
+    const by = orb.y + oy + Math.sin(gameTime * 0.06 + orb.bob) * 4;
+    const pulse = 1 + Math.sin(gameTime * 0.1) * 0.15;
+
+    // Glow
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = COL.YELLOW;
+    ctx.beginPath(); ctx.arc(bx, by, 14 * pulse, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // Core
+    ctx.fillStyle = COL.YELLOW;
+    ctx.beginPath(); ctx.arc(bx, by, 7 * pulse, 0, Math.PI * 2); ctx.fill();
+
+    // Inner bright
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(bx - 2, by - 2, 2.5, 0, Math.PI * 2); ctx.fill();
+
+    // Sparkle particles
+    if (gameTime % 8 === 0) {
+      emitParticle(orb.x + rng(-8, 8), orb.y + rng(-8, 8), rng(-0.5, 0.5), rng(-1, 0), 20, COL.YELLOW, 1.5);
+    }
+  }
+}
+
+function drawPortal() {
+  const ox = -cam.x + cam.shakeX;
+  const oy = -cam.y + cam.shakeY;
+  const px = level.portal.x + ox;
+  const py = level.portal.y + oy;
+  const active = player.orbs >= level.reqOrbs;
+  const t = gameTime * 0.05;
+
+  ctx.save();
+  if (active) {
+    // Active portal: bright swirl
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 6; i++) {
+      const a = t + i * Math.PI / 3;
+      const r = 16 + Math.sin(t * 2 + i) * 4;
+      ctx.strokeStyle = i % 2 === 0 ? COL.CYAN : COL.MAGENTA;
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.arc(px, py, r, a, a + Math.PI * 0.8);
+      ctx.stroke();
+    }
+    // Center glow
+    ctx.globalAlpha = 0.3 + Math.sin(t * 3) * 0.1;
+    ctx.fillStyle = COL.PORTAL;
+    ctx.beginPath(); ctx.arc(px, py, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
+
+    // Emit particles
+    if (gameTime % 3 === 0) {
+      const pa = Math.random() * Math.PI * 2;
+      emitParticle(level.portal.x + Math.cos(pa) * 20, level.portal.y + Math.sin(pa) * 20,
+        -Math.cos(pa) * 1.5, -Math.sin(pa) * 1.5, 20, COL.PORTAL, 2);
+    }
+  } else {
+    // Inactive portal: dim
+    ctx.globalAlpha = 0.2;
+    ctx.strokeStyle = '#446';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      const a = t * 0.5 + i * Math.PI * 2 / 3;
+      ctx.beginPath();
+      ctx.arc(px, py, 14, a, a + Math.PI * 0.6);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#334';
+    ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawPlayer() {
+  const p = player;
+  if (p.dead) return;
+  const ox = -cam.x + cam.shakeX;
+  const oy = -cam.y + cam.shakeY;
+
+  // Trail (dash afterimages)
+  for (const t of p.trail) {
+    ctx.save();
+    ctx.globalAlpha = t.life / 12 * 0.4;
+    ctx.fillStyle = COL.CYAN;
+    ctx.fillRect(t.x + ox, t.y + oy, p.w, p.h);
+    ctx.restore();
+  }
+
+  const px = p.x + ox;
+  const py = p.y + oy;
+
+  // Glow
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = p.dashing ? 0.4 : 0.15;
+  ctx.fillStyle = p.shifted ? COL.MAGENTA : COL.CYAN;
+  ctx.fillRect(px - 4, py - 4, p.w + 8, p.h + 8);
+  ctx.restore();
+
+  // Body
+  const bodyColor = p.shifted ? COL.MAGENTA : COL.CYAN;
+  ctx.fillStyle = p.dashing ? '#fff' : bodyColor;
+  ctx.fillRect(px, py, p.w, p.h);
+
+  // Inner detail
+  ctx.fillStyle = '#000';
+  ctx.fillRect(px + 3, py + (p.gravDir > 0 ? 5 : p.h - 11), p.w - 6, 6);
+
+  // Eyes
+  const eyeY = p.gravDir > 0 ? py + 7 : py + p.h - 13;
+  const eyeBaseX = px + (p.facing > 0 ? 8 : 4);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(eyeBaseX, eyeY, 3, 4);
+  ctx.fillRect(eyeBaseX + 6, eyeY, 3, 4);
+
+  // Gravity indicator (small arrow)
+  ctx.fillStyle = bodyColor;
+  ctx.globalAlpha = 0.6;
+  const arrowY = p.gravDir > 0 ? py + p.h + 3 : py - 6;
+  ctx.beginPath();
+  if (p.gravDir > 0) {
+    ctx.moveTo(px + p.w / 2 - 4, arrowY);
+    ctx.lineTo(px + p.w / 2, arrowY + 4);
+    ctx.lineTo(px + p.w / 2 + 4, arrowY);
+  } else {
+    ctx.moveTo(px + p.w / 2 - 4, arrowY + 4);
+    ctx.lineTo(px + p.w / 2, arrowY);
+    ctx.lineTo(px + p.w / 2 + 4, arrowY + 4);
+  }
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Wall slide indicator
+  if (p.wallSliding) {
+    ctx.fillStyle = '#fff';
+    ctx.globalAlpha = 0.5;
+    const sx = p.wallDir > 0 ? px + p.w : px - 3;
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(sx, py + 5 + i * 8, 2, 4);
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawHUD() {
+  ctx.save();
+
+  // Orb counter
+  ctx.font = 'bold 20px monospace';
+  ctx.textBaseline = 'top';
+
+  // Orb icon
+  ctx.fillStyle = COL.YELLOW;
+  ctx.beginPath(); ctx.arc(25, 30, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(23, 28, 2, 0, Math.PI * 2); ctx.fill();
+
+  // Counter
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = COL.YELLOW;
+  ctx.shadowBlur = 8;
+  ctx.fillText(`${player.orbs}/${level.reqOrbs}`, 40, 20);
+  ctx.shadowBlur = 0;
+
+  // Level name (fade in/out)
+  if (gameTime < 120) {
+    ctx.globalAlpha = gameTime < 60 ? gameTime / 60 : (120 - gameTime) / 60;
+    ctx.font = 'bold 28px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = COL.CYAN;
+    ctx.shadowColor = COL.CYAN;
+    ctx.shadowBlur = 15;
+    ctx.fillText(level.name, W / 2, 50);
+    ctx.shadowBlur = 0;
+    ctx.textAlign = 'left';
+    ctx.globalAlpha = 1;
+  }
+
+  // Dash cooldown
+  const dashReady = player.dashCooldown <= 0;
+  ctx.fillStyle = dashReady ? COL.CYAN : '#334';
+  ctx.fillRect(W - 120, 20, 40, 6);
+  if (!dashReady) {
+    const pct = 1 - player.dashCooldown / C.DASH_COOLDOWN;
+    ctx.fillStyle = COL.CYAN;
+    ctx.fillRect(W - 120, 20, 40 * pct, 6);
+  }
+  ctx.font = '11px monospace';
+  ctx.fillStyle = dashReady ? COL.CYAN : '#556';
+  ctx.fillText('DASH [E]', W - 120, 35);
+
+  // Shift cooldown
+  const shiftReady = player.shiftCooldown <= 0 && !player.shifted;
+  ctx.fillStyle = player.shifted ? COL.DIM_B : (shiftReady ? COL.DIM_B : '#334');
+  ctx.fillRect(W - 60, 20, 40, 6);
+  if (!shiftReady && !player.shifted) {
+    const pct = 1 - player.shiftCooldown / C.SHIFT_COOLDOWN;
+    ctx.fillStyle = COL.DIM_B;
+    ctx.fillRect(W - 60, 20, 40 * pct, 6);
+  } else if (player.shifted) {
+    const pct = player.shiftTimer / C.SHIFT_DURATION;
+    ctx.fillStyle = COL.DIM_B;
+    ctx.fillRect(W - 60, 20, 40 * pct, 6);
+  }
+  ctx.font = '11px monospace';
+  ctx.fillStyle = shiftReady || player.shifted ? COL.DIM_B : '#556';
+  ctx.fillText('SHIFT [L⇧]', W - 70, 35);
+
+  // Control hints (first level only)
+  if (levelIdx === 0 && gameTime < 400) {
+    ctx.globalAlpha = gameTime < 300 ? 0.7 : (400 - gameTime) / 100 * 0.7;
+    ctx.font = '14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#889';
+    ctx.fillText('← → / A D  Move   |   SPACE / W  Jump   |   SPACE (air)  Flip Gravity', W / 2, H - 60);
+    ctx.fillText('E  Dash   |   Left SHIFT  Dimension Shift   |   Wall-slide & Wall-jump off walls', W / 2, H - 38);
+    ctx.textAlign = 'left';
+    ctx.globalAlpha = 1;
+  }
+
+  // Deaths counter
+  ctx.font = '13px monospace';
+  ctx.fillStyle = '#556';
+  ctx.fillText(`Deaths: ${deaths}`, 15, H - 20);
+
+  ctx.restore();
+}
+
+function drawDeathScreen() {
+  ctx.save();
+  const progress = 1 - deathTimer / 50;
+
+  // Glitch effect
+  ctx.fillStyle = `rgba(255,0,60,${0.2 * (1 - progress)})`;
+  ctx.fillRect(0, 0, W, H);
+
+  if (progress > 0.3) {
+    ctx.font = 'bold 36px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Glitch slices
+    const text = 'DECONSTRUCTED';
+    for (let i = 0; i < 3; i++) {
+      const offset = (Math.random() - 0.5) * 20 * (1 - progress);
+      ctx.fillStyle = i === 0 ? COL.RED : i === 1 ? COL.CYAN : COL.MAGENTA;
+      ctx.globalAlpha = 0.7;
+      ctx.fillText(text, W / 2 + offset, H / 2 + (i - 1) * 2);
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fff';
+    ctx.fillText(text, W / 2, H / 2);
+  }
+
+  ctx.restore();
+}
+
+function drawLevelComplete() {
+  ctx.save();
+  const progress = 1 - levelCompleteTimer / 90;
+
+  // White flash
+  if (progress < 0.2) {
+    ctx.fillStyle = `rgba(255,255,255,${(0.2 - progress) * 3})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  if (progress > 0.2) {
+    ctx.font = 'bold 40px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = COL.PORTAL;
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = COL.PORTAL;
+    ctx.fillText('VOID CLEARED', W / 2, H / 2 - 20);
+    ctx.shadowBlur = 0;
+
+    ctx.font = '18px monospace';
+    ctx.fillStyle = '#aaa';
+    ctx.fillText(`Level ${levelIdx + 1} Complete`, W / 2, H / 2 + 25);
+  }
+
+  ctx.restore();
+}
+
+function drawTitle() {
+  ctx.fillStyle = COL.BG;
+  ctx.fillRect(0, 0, W, H);
+
+  // Animated grid
+  ctx.strokeStyle = 'rgba(0,180,255,0.06)';
+  ctx.lineWidth = 1;
+  const off = titleTime * 0.3;
+  for (let x = -C.TILE + (off % C.TILE); x < W; x += C.TILE) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = -C.TILE + (off % C.TILE); y < H; y += C.TILE) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // BG particles
+  if (titleTime % 2 === 0) {
+    emitParticle(rng(0, W), H + 10, rng(-0.3, 0.3), rng(-1, -0.5), 80, 'rgba(0,180,255,0.3)', rng(1, 3));
+  }
+  drawParticles(0, 0);
+
+  // Title
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // VOID
+  ctx.font = 'bold 72px monospace';
+  ctx.shadowColor = COL.CYAN;
+  ctx.shadowBlur = 30;
+  ctx.fillStyle = COL.CYAN;
+  ctx.fillText('VOID', W / 2 - 90, H / 2 - 50);
+
+  // RUNNER
+  ctx.shadowColor = COL.MAGENTA;
+  ctx.fillStyle = COL.MAGENTA;
+  ctx.fillText('RUNNER', W / 2 + 60, H / 2 - 50);
+
+  ctx.shadowBlur = 0;
+
+  // Subtitle
+  ctx.font = '16px monospace';
+  ctx.fillStyle = '#668';
+  ctx.fillText('Flip Gravity  ·  Shift Dimensions  ·  Dash Through the Void', W / 2, H / 2 + 10);
+
+  // Start prompt
+  const blink = Math.sin(titleTime * 0.08) > 0;
+  if (blink) {
+    ctx.font = 'bold 22px monospace';
+    ctx.fillStyle = '#fff';
+    ctx.fillText('Press ENTER or SPACE to Start', W / 2, H / 2 + 70);
+  }
+
+  // Controls
+  ctx.font = '13px monospace';
+  ctx.fillStyle = '#445';
+  ctx.fillText('← → / A D  Move   |   SPACE / W  Jump & Flip   |   E  Dash   |   Left SHIFT  Dimension Shift', W / 2, H / 2 + 130);
+
+  ctx.restore();
+}
+
+function drawWin() {
+  ctx.fillStyle = COL.BG;
+  ctx.fillRect(0, 0, W, H);
+
+  drawParticles(0, 0);
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  ctx.font = 'bold 56px monospace';
+  ctx.shadowColor = COL.PORTAL;
+  ctx.shadowBlur = 30;
+  ctx.fillStyle = COL.PORTAL;
+  ctx.fillText('THE VOID IS SILENT', W / 2, H / 2 - 60);
+  ctx.shadowBlur = 0;
+
+  ctx.font = '24px monospace';
+  ctx.fillStyle = COL.CYAN;
+  ctx.fillText('You have conquered all dimensions', W / 2, H / 2);
+
+  ctx.font = '18px monospace';
+  ctx.fillStyle = '#888';
+  ctx.fillText(`Deaths: ${deaths}`, W / 2, H / 2 + 50);
+
+  const blink = Math.sin(gameTime * 0.08) > 0;
+  if (blink) {
+    ctx.font = 'bold 20px monospace';
+    ctx.fillStyle = '#fff';
+    ctx.fillText('Press ENTER to Return', W / 2, H / 2 + 110);
+  }
+
+  ctx.restore();
+}
+
+// ---- DIMENSION SHIFT VISUAL OVERLAY ----
+function drawDimensionOverlay() {
+  if (!player.shifted) return;
+  ctx.save();
+  // Chromatic aberration effect
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = 0.04;
+  ctx.fillStyle = '#f0f';
+  ctx.fillRect(-3, 0, W, H);
+  ctx.fillStyle = '#00f';
+  ctx.fillRect(3, 0, W, H);
+  ctx.restore();
+
+  // Edge vignette
+  ctx.save();
+  const grad = ctx.createRadialGradient(W / 2, H / 2, W * 0.3, W / 2, H / 2, W * 0.7);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(100,20,150,0.15)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+// ---- POST-PROCESS SCANLINES ----
+function drawScanlines() {
+  ctx.save();
+  ctx.globalAlpha = 0.03;
+  ctx.fillStyle = '#000';
+  for (let y = 0; y < H; y += 4) {
+    ctx.fillRect(0, y, W, 2);
+  }
+  ctx.restore();
+}
+
+// ---- MAIN LOOP ----
+let lastTime = 0;
+
+function gameLoop(ts) {
+  requestAnimationFrame(gameLoop);
+  const dt = Math.min(ts - lastTime, 50);
+  lastTime = ts;
+
+  if (state === 'TITLE') {
+    titleTime++;
+    updateParticles();
+    drawTitle();
+    if (justPressed('Enter') || justPressed('Space')) {
+      Audio.init();
+      Audio.levelStart();
+      loadLevel(0);
+      state = 'PLAYING';
+      gameTime = 0;
+    }
+  } else if (state === 'PLAYING') {
+    gameTime++;
+    updatePlayer();
+    updateLasers();
+    updateCam(player.x + player.w / 2, player.y + player.h / 2, level.w, level.h);
+    updateParticles();
+
+    drawBG();
+    const ox = cam.shakeX, oy = cam.shakeY;
+    ctx.save();
+    ctx.translate(ox, oy);
+    drawTiles();
+    drawLasers();
+    drawOrbs();
+    drawPortal();
+    drawPlayer();
+    drawParticles(cam.x, cam.y);
+    ctx.restore();
+    drawDimensionOverlay();
+    drawScanlines();
+    drawHUD();
+
+    if (justPressed('KeyR')) {
+      resetPlayer();
+      for (const o of level.orbs) o.collected = false;
+      player.orbs = 0;
+      gameTime = 0;
+    }
+  } else if (state === 'DEAD') {
+    deathTimer--;
+    updateParticles();
+    gameTime++;
+
+    drawBG();
+    ctx.save();
+    ctx.translate(cam.shakeX, cam.shakeY);
+    drawTiles();
+    drawLasers();
+    drawOrbs();
+    drawPortal();
+    drawParticles(cam.x, cam.y);
+    ctx.restore();
+    drawDeathScreen();
+    drawHUD();
+
+    updateCam(player.x + player.w / 2, player.y + player.h / 2, level.w, level.h);
+
+    if (deathTimer <= 0) {
+      resetPlayer();
+      state = 'PLAYING';
+      gameTime = 0;
+    }
+  } else if (state === 'LEVEL_COMPLETE') {
+    levelCompleteTimer--;
+    updateParticles();
+    gameTime++;
+
+    drawBG();
+    ctx.save();
+    ctx.translate(cam.shakeX, cam.shakeY);
+    drawTiles();
+    drawLasers();
+    drawOrbs();
+    drawPortal();
+    drawPlayer();
+    drawParticles(cam.x, cam.y);
+    ctx.restore();
+    drawLevelComplete();
+
+    updateCam(player.x + player.w / 2, player.y + player.h / 2, level.w, level.h);
+
+    if (levelCompleteTimer <= 0) {
+      if (levelIdx + 1 < levels.length) {
+        loadLevel(levelIdx + 1);
+        Audio.levelStart();
+        state = 'PLAYING';
+        gameTime = 0;
+      } else {
+        state = 'WIN';
+      }
+    }
+  } else if (state === 'WIN') {
+    gameTime++;
+    updateParticles();
+    if (gameTime % 2 === 0) {
+      emitParticle(rng(0, W), H + 10, rng(-0.3, 0.3), rng(-1.5, -0.5), 80, rng(0, 1) > 0.5 ? COL.CYAN : COL.MAGENTA, rng(1, 3));
+    }
+    drawWin();
+    if (justPressed('Enter')) {
+      state = 'TITLE';
+      titleTime = 0;
+      deaths = 0;
+    }
+  }
+
+  input.just.clear();
+}
+
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
