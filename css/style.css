@@ -1,0 +1,23 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #000;
+  overflow: hidden;
+  font-family: monospace;
+}
+
+body.bg-forest {
+  background: #000 url('../assets/bg-forest.png') repeat-x;
+  background-size: auto 100vh;
+}
+
+body.bg-none {
+  background: #080816;
+}
+
+canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  image-rendering: pixelated;
+}

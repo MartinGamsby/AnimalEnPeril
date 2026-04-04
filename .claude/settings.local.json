@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit",
+      "Write",
+      "Read",
+      "WebSearch",
+      "mcp__Claude_Preview__preview_start"
+    ]
+  }
+}
