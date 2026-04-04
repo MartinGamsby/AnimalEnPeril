@@ -20,6 +20,9 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
+const bgImage = new Image();
+bgImage.src = 'assets/bg-forest.png';
+
 // ---- CONFIG ----
 const C = {
   TILE: 32,
@@ -994,6 +997,14 @@ function drawBG() {
   const bg = player.shifted ? '#0e0820' : COL.BG;
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
+  if (bgImage.complete && bgImage.naturalWidth) {
+    const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
+    for (let x = 0; x < W; x += iw) {
+      for (let y = H - ih; y < H; y += ih) {
+        ctx.drawImage(bgImage, x, y);
+      }
+    }
+  }
 
   // Grid
   ctx.strokeStyle = player.shifted ? 'rgba(180,60,255,0.06)' : 'rgba(0,180,255,0.04)';
