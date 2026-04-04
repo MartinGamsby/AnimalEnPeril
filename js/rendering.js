@@ -718,11 +718,29 @@ function drawSelect() {
   ctx.shadowBlur = 0;
 
   const save = SaveManager.getOrCreate();
-  const totalW = ANIMALS.length * 120;
-  const startX = W / 2 - totalW / 2 + 60;
+  const selCardW = 110;
+  const selMaxVisible = Math.min(ANIMALS.length, Math.floor((W - 80) / selCardW));
+  const selHalfVis = Math.floor(selMaxVisible / 2);
+  let selScroll = Math.max(0, Math.min(selectedAnimal - selHalfVis, ANIMALS.length - selMaxVisible));
+  const selTotalVisW = selMaxVisible * selCardW;
+  const selStartX = W / 2 - selTotalVisW / 2 + selCardW / 2;
 
-  for (let i = 0; i < ANIMALS.length; i++) {
-    const ax = startX + i * 120;
+  // Scroll arrows
+  if (selScroll > 0) {
+    ctx.font = 'bold 24px monospace';
+    ctx.fillStyle = '#556';
+    ctx.fillText('<', W / 2 - selTotalVisW / 2 - 25, H / 2 - 20);
+  }
+  if (selScroll + selMaxVisible < ANIMALS.length) {
+    ctx.font = 'bold 24px monospace';
+    ctx.fillStyle = '#556';
+    ctx.fillText('>', W / 2 + selTotalVisW / 2 + 25, H / 2 - 20);
+  }
+
+  for (let vi = 0; vi < selMaxVisible; vi++) {
+    const i = vi + selScroll;
+    if (i >= ANIMALS.length) break;
+    const ax = selStartX + vi * selCardW;
     const ay = H / 2 - 20;
     const selected = i === selectedAnimal;
     const bob = selected ? Math.sin(selectTime * 0.08) * 6 : 0;
@@ -734,35 +752,35 @@ function drawSelect() {
       ctx.globalAlpha = 0.15 + Math.sin(selectTime * 0.1) * 0.05;
       ctx.fillStyle = ANIMALS[i].color;
       ctx.beginPath();
-      ctx.arc(ax, ay + bob, 55, 0, Math.PI * 2);
+      ctx.arc(ax, ay + bob, 48, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
       ctx.strokeStyle = ANIMALS[i].color;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(ax, ay + bob, 48, 0, Math.PI * 2);
+      ctx.arc(ax, ay + bob, 42, 0, Math.PI * 2);
       ctx.stroke();
     }
 
     ctx.save();
-    const scale = selected ? 1.2 : 0.9;
+    const scale = selected ? 1.15 : 0.85;
     ctx.globalAlpha = unlocked ? (selected ? 1 : 0.5) : 0.2;
     ctx.translate(ax, ay + bob);
     ctx.scale(scale, scale);
     ctx.translate(-ax, -(ay + bob));
-    drawAnimalIcon(ANIMALS[i].icon, ax, ay + bob, 36, 1, 1);
+    drawAnimalIcon(ANIMALS[i].icon, ax, ay + bob, 34, 1, 1);
     ctx.restore();
 
     // Name or lock
     if (unlocked) {
-      ctx.font = selected ? 'bold 16px monospace' : '14px monospace';
+      ctx.font = selected ? 'bold 14px monospace' : '12px monospace';
       ctx.fillStyle = selected ? ANIMALS[i].color : '#556';
-      ctx.fillText(ANIMALS[i].name, ax, ay + 60 + bob);
+      ctx.fillText(ANIMALS[i].name, ax, ay + 55 + bob);
     } else {
-      ctx.font = '14px monospace';
+      ctx.font = '12px monospace';
       ctx.fillStyle = '#444';
-      ctx.fillText('Verrouille', ax, ay + 60 + bob);
+      ctx.fillText('Verrouille', ax, ay + 55 + bob);
     }
   }
 
@@ -812,12 +830,29 @@ function drawLevelSelect() {
   ctx.shadowBlur = 0;
 
   const save = SaveManager.getOrCreate();
-  const cardW = 160;
-  const totalCardsW = levels.length * cardW;
-  const startX = W / 2 - totalCardsW / 2 + cardW / 2;
+  const cardW = 130;
+  const maxVisible = Math.min(levels.length, Math.floor((W - 80) / cardW));
+  const halfVis = Math.floor(maxVisible / 2);
+  let scrollOffset = Math.max(0, Math.min(levelSelectIdx - halfVis, levels.length - maxVisible));
+  const totalVisW = maxVisible * cardW;
+  const startX = W / 2 - totalVisW / 2 + cardW / 2;
 
-  for (let i = 0; i < levels.length; i++) {
-    const cx = startX + i * cardW;
+  // Scroll arrows
+  if (scrollOffset > 0) {
+    ctx.font = 'bold 24px monospace';
+    ctx.fillStyle = '#556';
+    ctx.fillText('<', W / 2 - totalVisW / 2 - 25, H / 2 - 20);
+  }
+  if (scrollOffset + maxVisible < levels.length) {
+    ctx.font = 'bold 24px monospace';
+    ctx.fillStyle = '#556';
+    ctx.fillText('>', W / 2 + totalVisW / 2 + 25, H / 2 - 20);
+  }
+
+  for (let vi = 0; vi < maxVisible; vi++) {
+    const i = vi + scrollOffset;
+    if (i >= levels.length) break;
+    const cx = startX + vi * cardW;
     const cy = H / 2 - 20;
     const selected = i === levelSelectIdx;
     const completed = save.completedLevels.includes(i);
@@ -827,10 +862,10 @@ function drawLevelSelect() {
 
     // Card bg
     ctx.fillStyle = selected ? 'rgba(0,180,255,0.15)' : 'rgba(255,255,255,0.03)';
-    ctx.fillRect(cx - 60, cy - 60 + bob, 120, 120);
+    ctx.fillRect(cx - 55, cy - 60 + bob, 110, 120);
     ctx.strokeStyle = selected ? COL.CYAN : (accessible ? '#334' : '#222');
     ctx.lineWidth = selected ? 2 : 1;
-    ctx.strokeRect(cx - 60, cy - 60 + bob, 120, 120);
+    ctx.strokeRect(cx - 55, cy - 60 + bob, 110, 120);
 
     // Level number
     ctx.font = accessible ? 'bold 36px monospace' : '36px monospace';
@@ -838,7 +873,7 @@ function drawLevelSelect() {
     ctx.fillText(`${i + 1}`, cx, cy - 15 + bob);
 
     // Level name
-    ctx.font = '12px monospace';
+    ctx.font = '11px monospace';
     ctx.fillStyle = accessible ? (selected ? COL.CYAN : '#556') : '#333';
     ctx.fillText(levels[i].name, cx, cy + 20 + bob);
 
@@ -905,12 +940,30 @@ function drawShop() {
   ctx.fillStyle = COL.YELLOW;
   ctx.fillText(`Pieces : ${save.coins}`, W / 2, 125);
 
-  // Animal cards
-  const totalW = ANIMALS.length * 140;
-  const startX = W / 2 - totalW / 2 + 70;
+  // Animal cards with scrolling
+  const shopCardW = 120;
+  const shopMaxVisible = Math.min(ANIMALS.length, Math.floor((W - 80) / shopCardW));
+  const shopHalfVis = Math.floor(shopMaxVisible / 2);
+  let shopScroll = Math.max(0, Math.min(Shop.selectedIdx - shopHalfVis, ANIMALS.length - shopMaxVisible));
+  const shopTotalVisW = shopMaxVisible * shopCardW;
+  const shopStartX = W / 2 - shopTotalVisW / 2 + shopCardW / 2;
 
-  for (let i = 0; i < ANIMALS.length; i++) {
-    const ax = startX + i * 140;
+  // Scroll arrows
+  if (shopScroll > 0) {
+    ctx.font = 'bold 24px monospace';
+    ctx.fillStyle = '#556';
+    ctx.fillText('<', W / 2 - shopTotalVisW / 2 - 25, H / 2 - 10);
+  }
+  if (shopScroll + shopMaxVisible < ANIMALS.length) {
+    ctx.font = 'bold 24px monospace';
+    ctx.fillStyle = '#556';
+    ctx.fillText('>', W / 2 + shopTotalVisW / 2 + 25, H / 2 - 10);
+  }
+
+  for (let vi = 0; vi < shopMaxVisible; vi++) {
+    const i = vi + shopScroll;
+    if (i >= ANIMALS.length) break;
+    const ax = shopStartX + vi * shopCardW;
     const ay = H / 2 - 10;
     const selected = i === Shop.selectedIdx;
     const unlocked = save.unlockedAnimals.includes(ANIMALS[i].icon);
@@ -919,10 +972,10 @@ function drawShop() {
 
     // Card bg
     ctx.fillStyle = selected ? 'rgba(255,220,50,0.1)' : 'rgba(255,255,255,0.02)';
-    ctx.fillRect(ax - 55, ay - 70 + bob, 110, 150);
+    ctx.fillRect(ax - 50, ay - 70 + bob, 100, 150);
     ctx.strokeStyle = selected ? COL.YELLOW : '#333';
     ctx.lineWidth = selected ? 2 : 1;
-    ctx.strokeRect(ax - 55, ay - 70 + bob, 110, 150);
+    ctx.strokeRect(ax - 50, ay - 70 + bob, 100, 150);
 
     // Animal
     ctx.save();
@@ -935,19 +988,19 @@ function drawShop() {
     ctx.restore();
 
     // Name
-    ctx.font = selected ? 'bold 14px monospace' : '13px monospace';
+    ctx.font = selected ? 'bold 13px monospace' : '12px monospace';
     ctx.fillStyle = selected ? ANIMALS[i].color : '#556';
     ctx.fillText(ANIMALS[i].name, ax, ay + 40 + bob);
 
     // Status
     if (unlocked) {
-      ctx.font = '12px monospace';
+      ctx.font = '11px monospace';
       ctx.fillStyle = COL.GREEN;
-      ctx.fillText('Obtenu', ax, ay + 58 + bob);
+      ctx.fillText('Obtenu', ax, ay + 56 + bob);
     } else {
-      ctx.font = 'bold 14px monospace';
+      ctx.font = 'bold 13px monospace';
       ctx.fillStyle = canBuy ? COL.YELLOW : '#555';
-      ctx.fillText(`${ANIMALS[i].price} pieces`, ax, ay + 58 + bob);
+      ctx.fillText(`${ANIMALS[i].price} pieces`, ax, ay + 56 + bob);
     }
   }
 

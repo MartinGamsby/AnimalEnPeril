@@ -8,7 +8,7 @@ const SaveManager = {
   defaults() {
     return {
       coins: 0,
-      unlockedAnimals: ['cat'],
+      unlockedAnimals: ['cat', 'dog'],
       selectedAnimal: 0,
       completedLevels: [],
       levelStars: {},
@@ -24,7 +24,12 @@ const SaveManager = {
       if (!raw) return null;
       const data = JSON.parse(raw);
       // Merge with defaults to handle new fields
-      return { ...this.defaults(), ...data };
+      const merged = { ...this.defaults(), ...data };
+      // Ensure free animals are always unlocked
+      for (const icon of ['cat', 'dog']) {
+        if (!merged.unlockedAnimals.includes(icon)) merged.unlockedAnimals.push(icon);
+      }
+      return merged;
     } catch {
       return null;
     }
