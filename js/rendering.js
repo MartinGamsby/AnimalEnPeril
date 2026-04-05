@@ -447,8 +447,12 @@ function drawHUD() {
   ctx.fillText(`Morts : ${deaths}`, 15, H - 20);
 
   // Restart hint
-  ctx.fillStyle = '#556';
-  ctx.fillText('[R] Recommencer', W - 150, H - 20);
+  ctx.font = 'bold 14px monospace';
+  ctx.fillStyle = COL.CYAN;
+  ctx.shadowColor = COL.CYAN;
+  ctx.shadowBlur = 6;
+  ctx.fillText('[R] Recommencer', W - 170, H - 20);
+  ctx.shadowBlur = 0;
 
   // Coins (from save)
   const save = SaveManager.getOrCreate();
