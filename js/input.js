@@ -36,17 +36,20 @@ function _canvasXY(clientX, clientY) {
 // Virtual button layout (computed from current screen size)
 function getTouchBtns() {
   const s = Math.max(52, Math.min(72, W * 0.09, H * 0.13));
+  const as = Math.round(s * 1.25); // arrows bigger
   const gap = 10;
   const pad = 18;
-  const by = H - pad - s;
+  const by = H - pad - as - pad;       // arrows row (bigger)
+  const sby = H - pad - s;       // action row
+  const sm = Math.round(s * 0.7);
   return [
-    { key: 'ArrowLeft',  x: pad,              y: by,             w: s,          h: s, label: '\u25C0',   color: COL.CYAN },
-    { key: 'ArrowRight', x: pad + s + gap,    y: by,             w: s,          h: s, label: '\u25B6',   color: COL.CYAN },
-    { key: 'Space',      x: W-pad-s*2-gap,    y: by,             w: s*2+gap,    h: s, label: 'SAUT',     color: COL.MAGENTA },
-    { key: 'KeyE',       x: W-pad-s,          y: by - s - gap,   w: s,          h: s, label: 'DASH',     color: COL.CYAN },
-    { key: 'ShiftLeft',  x: W-pad-s*2-gap,    y: by - s - gap,   w: s,          h: s, label: 'DIM',      color: COL.DIM_B },
-    { key: 'Escape',     x: pad,              y: 90,             w: s*0.8,      h: s*0.7, label: '\u2190',  color: '#556' },
-    { key: 'KeyR',       x: pad+s*0.8+gap,    y: 90,             w: s*0.8,      h: s*0.7, label: 'R',     color: '#556' },
+    { key: 'ArrowLeft',  x: pad,              y: by,              w: as,         h: as, label: '\u25C0',   color: COL.CYAN },
+    { key: 'ArrowRight', x: pad + as + gap,   y: by,              w: as,         h: as, label: '\u25B6',   color: COL.CYAN },
+    { key: 'Space',      x: W-pad-s*2-gap,    y: sby,             w: s*2+gap,    h: s, label: 'SAUT',     color: COL.MAGENTA },
+    { key: 'KeyE',       x: W-pad-s,          y: sby - s - gap,   w: s,          h: s, label: 'DASH',     color: COL.CYAN,  id: 'dash' },
+    { key: 'ShiftLeft',  x: W-pad-s*2-gap,    y: sby - s - gap,   w: s,          h: s, label: 'DIM',      color: COL.DIM_B, id: 'shift' },
+    { key: 'Escape',     x: 230,              y: 15,              w: sm,         h: sm, label: '\u2190',   color: '#556' },
+    { key: 'KeyR',       x: 230+sm+gap,       y: 15,              w: sm,         h: sm, label: 'R',        color: '#556' },
   ];
 }
 

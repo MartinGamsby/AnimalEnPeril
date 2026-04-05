@@ -399,35 +399,36 @@ function drawHUD() {
     ctx.globalAlpha = 1;
   }
 
-  // Dash cooldown
-  const dashReady = player.dashCooldown <= 0;
-  ctx.fillStyle = dashReady ? COL.CYAN : '#334';
-  ctx.fillRect(W - 120, 20, 40, 6);
-  if (!dashReady) {
-    const pct = 1 - player.dashCooldown / C.DASH_COOLDOWN;
-    ctx.fillStyle = COL.CYAN;
-    ctx.fillRect(W - 120, 20, 40 * pct, 6);
-  }
-  ctx.font = '11px monospace';
-  ctx.fillStyle = dashReady ? COL.CYAN : '#556';
-  ctx.fillText('DASH [E]', W - 120, 35);
+  // Dash/Shift cooldown (top-right HUD, only when virtual buttons are hidden)
+  if (!touchUI.show) {
+    const dashReady = player.dashCooldown <= 0;
+    ctx.fillStyle = dashReady ? COL.CYAN : '#334';
+    ctx.fillRect(W - 120, 20, 40, 6);
+    if (!dashReady) {
+      const pct = 1 - player.dashCooldown / C.DASH_COOLDOWN;
+      ctx.fillStyle = COL.CYAN;
+      ctx.fillRect(W - 120, 20, 40 * pct, 6);
+    }
+    ctx.font = '11px monospace';
+    ctx.fillStyle = dashReady ? COL.CYAN : '#556';
+    ctx.fillText('DASH [E]', W - 120, 35);
 
-  // Shift cooldown
-  const shiftReady = player.shiftCooldown <= 0 && !player.shifted;
-  ctx.fillStyle = player.shifted ? COL.DIM_B : (shiftReady ? COL.DIM_B : '#334');
-  ctx.fillRect(W - 60, 20, 40, 6);
-  if (!shiftReady && !player.shifted) {
-    const pct = 1 - player.shiftCooldown / C.SHIFT_COOLDOWN;
-    ctx.fillStyle = COL.DIM_B;
-    ctx.fillRect(W - 60, 20, 40 * pct, 6);
-  } else if (player.shifted) {
-    const pct = player.shiftTimer / C.SHIFT_DURATION;
-    ctx.fillStyle = COL.DIM_B;
-    ctx.fillRect(W - 60, 20, 40 * pct, 6);
+    const shiftReady = player.shiftCooldown <= 0 && !player.shifted;
+    ctx.fillStyle = player.shifted ? COL.DIM_B : (shiftReady ? COL.DIM_B : '#334');
+    ctx.fillRect(W - 60, 20, 40, 6);
+    if (!shiftReady && !player.shifted) {
+      const pct = 1 - player.shiftCooldown / C.SHIFT_COOLDOWN;
+      ctx.fillStyle = COL.DIM_B;
+      ctx.fillRect(W - 60, 20, 40 * pct, 6);
+    } else if (player.shifted) {
+      const pct = player.shiftTimer / C.SHIFT_DURATION;
+      ctx.fillStyle = COL.DIM_B;
+      ctx.fillRect(W - 60, 20, 40 * pct, 6);
+    }
+    ctx.font = '11px monospace';
+    ctx.fillStyle = shiftReady || player.shifted ? COL.DIM_B : '#556';
+    ctx.fillText('SHIFT [L+]', W - 70, 35);
   }
-  ctx.font = '11px monospace';
-  ctx.fillStyle = shiftReady || player.shifted ? COL.DIM_B : '#556';
-  ctx.fillText('SHIFT [L+]', W - 70, 35);
 
   // Controls hint (first level)
   if (levelIdx === 0 && gameTime < 400 && !touchUI.show) {
@@ -598,6 +599,20 @@ function drawScanlines() {
 }
 
 // ---- TOUCH / MOUSE VIRTUAL CONTROLS ----
+function _drawRoundedRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 function drawTouchControls() {
   if (!touchUI.show) return;
   const btns = getTouchBtns();
@@ -611,18 +626,7 @@ function drawTouchControls() {
 
     // Button background
     ctx.fillStyle = pressed ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.35)';
-    ctx.beginPath();
-    const r = 8;
-    ctx.moveTo(btn.x + r, btn.y);
-    ctx.lineTo(btn.x + btn.w - r, btn.y);
-    ctx.quadraticCurveTo(btn.x + btn.w, btn.y, btn.x + btn.w, btn.y + r);
-    ctx.lineTo(btn.x + btn.w, btn.y + btn.h - r);
-    ctx.quadraticCurveTo(btn.x + btn.w, btn.y + btn.h, btn.x + btn.w - r, btn.y + btn.h);
-    ctx.lineTo(btn.x + r, btn.y + btn.h);
-    ctx.quadraticCurveTo(btn.x, btn.y + btn.h, btn.x, btn.y + btn.h - r);
-    ctx.lineTo(btn.x, btn.y + r);
-    ctx.quadraticCurveTo(btn.x, btn.y, btn.x + r, btn.y);
-    ctx.closePath();
+    _drawRoundedRect(btn.x, btn.y, btn.w, btn.h, 8);
     ctx.fill();
 
     // Border glow
@@ -631,11 +635,68 @@ function drawTouchControls() {
     ctx.globalAlpha = alpha;
     ctx.stroke();
 
+    // Cooldown bar for DASH button
+    if (btn.id === 'dash') {
+      const dashReady = player.dashCooldown <= 0;
+      const barH = 4;
+      const barY = btn.y + btn.h - barH - 4;
+      const barX = btn.x + 6;
+      const barW = btn.w - 12;
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = '#334';
+      ctx.fillRect(barX, barY, barW, barH);
+      if (!dashReady) {
+        const pct = 1 - player.dashCooldown / C.DASH_COOLDOWN;
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = COL.CYAN;
+        ctx.fillRect(barX, barY, barW * pct, barH);
+      } else {
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = COL.CYAN;
+        ctx.fillRect(barX, barY, barW, barH);
+      }
+    }
+
+    // Cooldown bar for SHIFT/DIM button
+    if (btn.id === 'shift') {
+      const shiftReady = player.shiftCooldown <= 0 && !player.shifted;
+      const barH = 4;
+      const barY = btn.y + btn.h - barH - 4;
+      const barX = btn.x + 6;
+      const barW = btn.w - 12;
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = '#334';
+      ctx.fillRect(barX, barY, barW, barH);
+      if (player.shifted) {
+        const pct = player.shiftTimer / C.SHIFT_DURATION;
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = COL.DIM_B;
+        ctx.fillRect(barX, barY, barW * pct, barH);
+      } else if (!shiftReady) {
+        const pct = 1 - player.shiftCooldown / C.SHIFT_COOLDOWN;
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = COL.DIM_B;
+        ctx.fillRect(barX, barY, barW * pct, barH);
+      } else {
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = COL.DIM_B;
+        ctx.fillRect(barX, barY, barW, barH);
+      }
+    }
+
     // Label
     ctx.globalAlpha = pressed ? 0.9 : 0.45;
     ctx.fillStyle = btn.color;
+    const hasBar = btn.id === 'dash' || btn.id === 'shift';
     ctx.font = btn.label.length > 2 ? 'bold 13px monospace' : 'bold 20px monospace';
-    ctx.fillText(btn.label, btn.x + btn.w / 2, btn.y + btn.h / 2);
+    ctx.fillText(btn.label, btn.x + btn.w / 2, btn.y + btn.h / 2 + (hasBar ? -4 : 0));
+
+    // Key shortcut hint on dash/shift
+    if (hasBar) {
+      ctx.globalAlpha = pressed ? 0.5 : 0.2;
+      ctx.font = '9px monospace';
+      ctx.fillText(btn.id === 'dash' ? '[E]' : '[L\u21E7]', btn.x + btn.w / 2, btn.y + 12);
+    }
 
     ctx.globalAlpha = 1;
   }
