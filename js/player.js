@@ -118,7 +118,7 @@ function updateLasers() {
       // Default direction = (0, 1), rotated by angle = (sin(a), cos(a))
       const midY = (l.y1 + l.y2) / 2;
       const halfLen = (l.y2 - l.y1) / 2;
-      l.currentX = l.x + Math.sin(a) * halfLen * progress + l._wobbleOffset;
+      l.currentX = l.x - Math.sin(a) * halfLen * progress + l._wobbleOffset;
       l.currentY = midY + Math.cos(a) * halfLen * progress;
     } else if (l.horizontal) {
       // Movement: emitter oscillates along a path tilted by angle
