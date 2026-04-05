@@ -15,6 +15,7 @@ const SaveManager = {
       levelBestFlips: {},
       levelBestTime: {},
       background: 'forest',
+      showTouchControls: 'auto',
       totalDeaths: 0,
       challengeCompleted: [],
       challengeStars: {},

@@ -37,8 +37,15 @@ function applyBackground(bg) {
   document.body.className = bg === 'forest' ? 'bg-forest' : 'bg-none';
 }
 
-// Apply saved background on load
-applyBackground(SaveManager.getOrCreate().background);
+function applyTouchControls(val) {
+  if (val === 'auto') touchUI.show = _isTouchDevice;
+  else touchUI.show = val === 'on';
+}
+
+// Apply saved settings on load
+const _initSave = SaveManager.getOrCreate();
+applyBackground(_initSave.background);
+applyTouchControls(_initSave.showTouchControls);
 
 // ---- MAIN LOOP ----
 let lastTime = 0;
@@ -52,7 +59,7 @@ function gameLoop(ts) {
     introTime++;
     updateParticles();
     drawIntro();
-    if ((justPressed('Enter') || justPressed('Space')) && introTime > 30) {
+    if (((justPressed('Enter') || justPressed('Space')) || (input.taps.length > 0)) && introTime > 30) {
       Audio.init();
       state = 'TITLE';
       titleTime = 0;
@@ -70,6 +77,20 @@ function gameLoop(ts) {
     if (justPressed('ArrowDown') || justPressed('KeyS')) {
       titleMenuIdx = (titleMenuIdx + 1) % menuCount;
     }
+    // Tap/click on menu items
+    for (const tap of input.taps) {
+      const menuY = H / 2 + 60;
+      const menuCount = getTitleMenuCount();
+      for (let i = 0; i < menuCount; i++) {
+        const iy = menuY + 35 * i;
+        if (tap.x > W / 4 && tap.x < W * 3 / 4 && tap.y > iy - 18 && tap.y < iy + 18) {
+          titleMenuIdx = i;
+          input.just.add('Enter');
+          break;
+        }
+      }
+    }
+
     if (justPressed('Enter') || justPressed('Space')) {
       Audio.init();
       const hasSave = SaveManager.hasSave();
@@ -113,6 +134,28 @@ function gameLoop(ts) {
     drawSelect();
 
     const save = SaveManager.getOrCreate();
+
+    // Tap handling for SELECT
+    for (const tap of input.taps) {
+      // Back button (top-left)
+      if (tap.x < 120 && tap.y < 60) { input.just.add('Escape'); break; }
+      // Tap on animal cards
+      const selCardW = 110;
+      const selMaxV = Math.min(ANIMALS.length, Math.floor((W - 80) / selCardW));
+      const selHV = Math.floor(selMaxV / 2);
+      const selScr = Math.max(0, Math.min(selectedAnimal - selHV, ANIMALS.length - selMaxV));
+      const selSX = W / 2 - selMaxV * selCardW / 2 + selCardW / 2;
+      for (let vi = 0; vi < selMaxV; vi++) {
+        const i = vi + selScr;
+        const ax = selSX + vi * selCardW;
+        const ay = H / 2 - 20;
+        if (tap.x > ax - 50 && tap.x < ax + 50 && tap.y > ay - 50 && tap.y < ay + 60) {
+          if (i === selectedAnimal) { input.just.add('Enter'); }
+          else { selectedAnimal = i; }
+          break;
+        }
+      }
+    }
 
     if (justPressed('ArrowLeft') || justPressed('KeyA')) {
       selectedAnimal = (selectedAnimal - 1 + ANIMALS.length) % ANIMALS.length;
@@ -159,6 +202,26 @@ function gameLoop(ts) {
 
     const save = SaveManager.getOrCreate();
 
+    // Tap handling for LEVEL_SELECT
+    for (const tap of input.taps) {
+      if (tap.x < 120 && tap.y < 60) { input.just.add('Escape'); break; }
+      const cardW = 130;
+      const maxV = Math.min(levels.length, Math.floor((W - 80) / cardW));
+      const hV = Math.floor(maxV / 2);
+      const scr = Math.max(0, Math.min(levelSelectIdx - hV, levels.length - maxV));
+      const sX = W / 2 - maxV * cardW / 2 + cardW / 2;
+      for (let vi = 0; vi < maxV; vi++) {
+        const i = vi + scr;
+        const cx = sX + vi * cardW;
+        const cy = H / 2 - 20;
+        if (tap.x > cx - 60 && tap.x < cx + 60 && tap.y > cy - 65 && tap.y < cy + 65) {
+          if (i === levelSelectIdx) { input.just.add('Enter'); }
+          else { levelSelectIdx = i; }
+          break;
+        }
+      }
+    }
+
     if (justPressed('ArrowLeft') || justPressed('KeyA')) {
       levelSelectIdx = (levelSelectIdx - 1 + levels.length) % levels.length;
     }
@@ -190,6 +253,26 @@ function gameLoop(ts) {
     drawChallengeSelect();
 
     const save = SaveManager.getOrCreate();
+
+    // Tap handling for CHALLENGE_SELECT
+    for (const tap of input.taps) {
+      if (tap.x < 120 && tap.y < 60) { input.just.add('Escape'); break; }
+      const cardW = 150;
+      const maxV = Math.min(challengeLevels.length, Math.floor((W - 80) / cardW));
+      const hV = Math.floor(maxV / 2);
+      const scr = Math.max(0, Math.min(challengeSelectIdx - hV, challengeLevels.length - maxV));
+      const sX = W / 2 - maxV * cardW / 2 + cardW / 2;
+      for (let vi = 0; vi < maxV; vi++) {
+        const i = vi + scr;
+        const cx = sX + vi * cardW;
+        const cy = H / 2 - 20;
+        if (tap.x > cx - 65 && tap.x < cx + 65 && tap.y > cy - 65 && tap.y < cy + 70) {
+          if (i === challengeSelectIdx) { input.just.add('Enter'); }
+          else { challengeSelectIdx = i; }
+          break;
+        }
+      }
+    }
 
     if (justPressed('ArrowLeft') || justPressed('KeyA')) {
       challengeSelectIdx = (challengeSelectIdx - 1 + challengeLevels.length) % challengeLevels.length;
@@ -229,6 +312,26 @@ function gameLoop(ts) {
     updateParticles();
     drawShop();
 
+    // Tap handling for SHOP
+    for (const tap of input.taps) {
+      if (tap.x < 120 && tap.y < 60) { input.just.add('Escape'); break; }
+      const shopCardW = 120;
+      const shopMaxV = Math.min(ANIMALS.length, Math.floor((W - 80) / shopCardW));
+      const shopHV = Math.floor(shopMaxV / 2);
+      const shopScr = Math.max(0, Math.min(Shop.selectedIdx - shopHV, ANIMALS.length - shopMaxV));
+      const shopSX = W / 2 - shopMaxV * shopCardW / 2 + shopCardW / 2;
+      for (let vi = 0; vi < shopMaxV; vi++) {
+        const i = vi + shopScr;
+        const ax = shopSX + vi * shopCardW;
+        const ay = H / 2 - 10;
+        if (tap.x > ax - 55 && tap.x < ax + 55 && tap.y > ay - 75 && tap.y < ay + 80) {
+          if (i === Shop.selectedIdx) { input.just.add('Enter'); }
+          else { Shop.selectedIdx = i; }
+          break;
+        }
+      }
+    }
+
     if (justPressed('ArrowLeft') || justPressed('KeyA')) {
       Shop.selectedIdx = (Shop.selectedIdx - 1 + ANIMALS.length) % ANIMALS.length;
     }
@@ -253,6 +356,30 @@ function gameLoop(ts) {
     updateParticles();
     drawOptions();
 
+    // Tap handling for OPTIONS
+    for (const tap of input.taps) {
+      if (tap.x < 120 && tap.y < 60) { input.just.add('Escape'); break; }
+      // Tap on background option area (drawn at H/2 - 30)
+      if (tap.y > H / 2 - 50 && tap.y < H / 2 - 10 && tap.x > W / 4 && tap.x < W * 3 / 4) {
+        optionsIdx = 0;
+        input.just.add('ArrowRight');
+        break;
+      }
+      // Tap on touch controls option area (drawn at H/2 + 5)
+      if (tap.y > H / 2 - 10 && tap.y < H / 2 + 25 && tap.x > W / 4 && tap.x < W * 3 / 4) {
+        optionsIdx = 1;
+        input.just.add('ArrowRight');
+        break;
+      }
+    }
+
+    if (justPressed('ArrowUp') || justPressed('KeyW')) {
+      optionsIdx = (optionsIdx - 1 + 2) % 2;
+    }
+    if (justPressed('ArrowDown') || justPressed('KeyS')) {
+      optionsIdx = (optionsIdx + 1) % 2;
+    }
+
     if (justPressed('Escape')) {
       state = 'TITLE';
       titleTime = 0;
@@ -260,6 +387,7 @@ function gameLoop(ts) {
 
     const save = SaveManager.getOrCreate();
     const bgOptions = ['forest', 'none'];
+    const touchOptions = ['auto', 'on', 'off'];
 
     if (optionsIdx === 0) {
       if (justPressed('ArrowLeft') || justPressed('KeyA') || justPressed('ArrowRight') || justPressed('KeyD')) {
@@ -268,6 +396,15 @@ function gameLoop(ts) {
         save.background = bgOptions[newIdx];
         SaveManager.save(save);
         applyBackground(save.background);
+      }
+    }
+    if (optionsIdx === 1) {
+      if (justPressed('ArrowLeft') || justPressed('KeyA') || justPressed('ArrowRight') || justPressed('KeyD')) {
+        const cur = touchOptions.indexOf(save.showTouchControls || 'auto');
+        const next = (cur + 1) % touchOptions.length;
+        save.showTouchControls = touchOptions[next];
+        SaveManager.save(save);
+        applyTouchControls(save.showTouchControls);
       }
     }
   } else if (state === 'PLAYING') {
@@ -291,6 +428,7 @@ function gameLoop(ts) {
     drawDimensionOverlay();
     drawScanlines();
     drawHUD();
+    drawTouchControls();
 
     if (justPressed('KeyR')) {
       resetPlayer();
@@ -378,7 +516,7 @@ function gameLoop(ts) {
       emitParticle(rng(0, W), H + 10, rng(-0.3, 0.3), rng(-1.5, -0.5), 80, rng(0, 1) > 0.5 ? COL.CYAN : COL.MAGENTA, rng(1, 3));
     }
     drawWin();
-    if (justPressed('Enter')) {
+    if (justPressed('Enter') || input.taps.length > 0) {
       state = 'TITLE';
       titleTime = 0;
       deaths = 0;
@@ -386,6 +524,7 @@ function gameLoop(ts) {
   }
 
   input.just.clear();
+  input.taps.length = 0;
 }
 
 requestAnimationFrame(gameLoop);

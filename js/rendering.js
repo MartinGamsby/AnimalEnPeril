@@ -430,7 +430,7 @@ function drawHUD() {
   ctx.fillText('SHIFT [L+]', W - 70, 35);
 
   // Controls hint (first level)
-  if (levelIdx === 0 && gameTime < 400) {
+  if (levelIdx === 0 && gameTime < 400 && !touchUI.show) {
     ctx.globalAlpha = gameTime < 300 ? 0.7 : (400 - gameTime) / 100 * 0.7;
     ctx.font = '14px monospace';
     ctx.textAlign = 'center';
@@ -446,13 +446,15 @@ function drawHUD() {
   ctx.fillStyle = '#556';
   ctx.fillText(`Morts : ${deaths}`, 15, H - 20);
 
-  // Restart hint
-  ctx.font = 'bold 14px monospace';
-  ctx.fillStyle = COL.CYAN;
-  ctx.shadowColor = COL.CYAN;
-  ctx.shadowBlur = 6;
-  ctx.fillText('[R] Recommencer', W - 170, H - 20);
-  ctx.shadowBlur = 0;
+  // Restart hint (hide when touch controls are visible - buttons handle this)
+  if (!touchUI.show) {
+    ctx.font = 'bold 14px monospace';
+    ctx.fillStyle = COL.CYAN;
+    ctx.shadowColor = COL.CYAN;
+    ctx.shadowBlur = 6;
+    ctx.fillText('[R] Recommencer', W - 170, H - 20);
+    ctx.shadowBlur = 0;
+  }
 
   // Coins (from save)
   const save = SaveManager.getOrCreate();
@@ -595,6 +597,87 @@ function drawScanlines() {
   ctx.restore();
 }
 
+// ---- TOUCH / MOUSE VIRTUAL CONTROLS ----
+function drawTouchControls() {
+  if (!touchUI.show) return;
+  const btns = getTouchBtns();
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  for (const btn of btns) {
+    const pressed = !!input.touchKeys[btn.key];
+    const alpha = pressed ? 0.55 : 0.22;
+
+    // Button background
+    ctx.fillStyle = pressed ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    const r = 8;
+    ctx.moveTo(btn.x + r, btn.y);
+    ctx.lineTo(btn.x + btn.w - r, btn.y);
+    ctx.quadraticCurveTo(btn.x + btn.w, btn.y, btn.x + btn.w, btn.y + r);
+    ctx.lineTo(btn.x + btn.w, btn.y + btn.h - r);
+    ctx.quadraticCurveTo(btn.x + btn.w, btn.y + btn.h, btn.x + btn.w - r, btn.y + btn.h);
+    ctx.lineTo(btn.x + r, btn.y + btn.h);
+    ctx.quadraticCurveTo(btn.x, btn.y + btn.h, btn.x, btn.y + btn.h - r);
+    ctx.lineTo(btn.x, btn.y + r);
+    ctx.quadraticCurveTo(btn.x, btn.y, btn.x + r, btn.y);
+    ctx.closePath();
+    ctx.fill();
+
+    // Border glow
+    ctx.strokeStyle = btn.color;
+    ctx.lineWidth = pressed ? 2.5 : 1.2;
+    ctx.globalAlpha = alpha;
+    ctx.stroke();
+
+    // Label
+    ctx.globalAlpha = pressed ? 0.9 : 0.45;
+    ctx.fillStyle = btn.color;
+    ctx.font = btn.label.length > 2 ? 'bold 13px monospace' : 'bold 20px monospace';
+    ctx.fillText(btn.label, btn.x + btn.w / 2, btn.y + btn.h / 2);
+
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
+// Draw a back button for menu screens (touch/mouse)
+function drawBackButton() {
+  if (!touchUI.show) return;
+  const s = Math.max(52, Math.min(72, W * 0.09, H * 0.13));
+  const pad = 18;
+  const bw = s * 1.2;
+  const bh = s * 0.65;
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.strokeStyle = '#556';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  const r = 6;
+  ctx.moveTo(pad + r, pad);
+  ctx.lineTo(pad + bw - r, pad);
+  ctx.quadraticCurveTo(pad + bw, pad, pad + bw, pad + r);
+  ctx.lineTo(pad + bw, pad + bh - r);
+  ctx.quadraticCurveTo(pad + bw, pad + bh, pad + bw - r, pad + bh);
+  ctx.lineTo(pad + r, pad + bh);
+  ctx.quadraticCurveTo(pad, pad + bh, pad, pad + bh - r);
+  ctx.lineTo(pad, pad + r);
+  ctx.quadraticCurveTo(pad, pad, pad + r, pad);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = '#aaa';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 14px monospace';
+  ctx.fillText('\u2190 RETOUR', pad + bw / 2, pad + bh / 2);
+  ctx.restore();
+}
+
 // ---- INTRO SCREEN ----
 const introLines = [
   "Laboratoire Nexus - Rapport d'incident #47",
@@ -691,7 +774,7 @@ function drawIntro() {
     if (blink) {
       ctx.font = '14px monospace';
       ctx.fillStyle = '#556';
-      ctx.fillText('Appuie sur ESPACE ou ENTREE pour continuer', W / 2, H / 2 + 220);
+      ctx.fillText(touchUI.show ? 'Touche pour continuer' : 'Appuie sur ESPACE ou ENTREE pour continuer', W / 2, H / 2 + 220);
     }
   }
 
@@ -779,7 +862,7 @@ function drawTitle() {
   // Controls hint
   ctx.font = '13px monospace';
   ctx.fillStyle = '#334';
-  ctx.fillText('< > / A D  Bouger   |   ESPACE / W  Sauter & Inverser   |   E  Dash   |   SHIFT Gauche  Changer de dimension', W / 2, H - 30);
+  ctx.fillText(touchUI.show ? 'Utilise les boutons tactiles pour jouer' : '< > / A D  Bouger   |   ESPACE / W  Sauter & Inverser   |   E  Dash   |   SHIFT Gauche  Changer de dimension', W / 2, H - 30);
 
   ctx.restore();
 }
@@ -884,16 +967,17 @@ function drawSelect() {
 
   ctx.font = '16px monospace';
   ctx.fillStyle = '#556';
-  ctx.fillText('<  >  pour choisir', W / 2, H / 2 + 100);
+  ctx.fillText(touchUI.show ? 'Touche pour choisir' : '<  >  pour choisir', W / 2, H / 2 + 100);
 
   const blink = Math.sin(selectTime * 0.08) > 0;
   if (blink) {
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#fff';
-    ctx.fillText('ENTREE ou ESPACE pour jouer', W / 2, H / 2 + 140);
+    ctx.fillText(touchUI.show ? 'Touche pour jouer' : 'ENTREE ou ESPACE pour jouer', W / 2, H / 2 + 140);
   }
 
   ctx.restore();
+  drawBackButton();
 }
 
 // ---- LEVEL SELECT SCREEN ----
@@ -988,16 +1072,17 @@ function drawLevelSelect() {
   // Navigation
   ctx.font = '16px monospace';
   ctx.fillStyle = '#556';
-  ctx.fillText('<  >  pour choisir   |   ECHAP  retour', W / 2, H / 2 + 120);
+  ctx.fillText(touchUI.show ? 'Touche pour choisir' : '<  >  pour choisir   |   ECHAP  retour', W / 2, H / 2 + 120);
 
   const blink = Math.sin(selectTime * 0.08) > 0;
   if (blink) {
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#fff';
-    ctx.fillText('ENTREE ou ESPACE pour jouer', W / 2, H / 2 + 155);
+    ctx.fillText(touchUI.show ? 'Touche pour jouer' : 'ENTREE ou ESPACE pour jouer', W / 2, H / 2 + 155);
   }
 
   ctx.restore();
+  drawBackButton();
 }
 
 // ---- CHALLENGE SELECT SCREEN ----
@@ -1098,16 +1183,17 @@ function drawChallengeSelect() {
   // Navigation
   ctx.font = '16px monospace';
   ctx.fillStyle = '#556';
-  ctx.fillText('<  >  pour choisir   |   ECHAP  retour', W / 2, H / 2 + 120);
+  ctx.fillText(touchUI.show ? 'Touche pour choisir' : '<  >  pour choisir   |   ECHAP  retour', W / 2, H / 2 + 120);
 
   const blink = Math.sin(selectTime * 0.08) > 0;
   if (blink) {
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = COL.RED;
-    ctx.fillText('ENTREE ou ESPACE pour jouer', W / 2, H / 2 + 155);
+    ctx.fillText(touchUI.show ? 'Touche pour jouer' : 'ENTREE ou ESPACE pour jouer', W / 2, H / 2 + 155);
   }
 
   ctx.restore();
+  drawBackButton();
 }
 
 // ---- SHOP SCREEN ----
@@ -1219,15 +1305,16 @@ function drawShop() {
     const canBuy = Shop.canBuy(Shop.selectedIdx, save);
     ctx.font = '16px monospace';
     ctx.fillStyle = canBuy ? COL.GREEN : '#555';
-    ctx.fillText(canBuy ? 'ENTREE pour acheter' : 'Pas assez de pieces', W / 2, H / 2 + 110);
+    ctx.fillText(canBuy ? (touchUI.show ? 'Touche pour acheter' : 'ENTREE pour acheter') : 'Pas assez de pieces', W / 2, H / 2 + 110);
   }
 
   // Navigation
   ctx.font = '14px monospace';
   ctx.fillStyle = '#445';
-  ctx.fillText('<  >  pour choisir   |   ECHAP  retour', W / 2, H / 2 + 150);
+  ctx.fillText(touchUI.show ? 'Touche pour choisir' : '<  >  pour choisir   |   ECHAP  retour', W / 2, H / 2 + 150);
 
   ctx.restore();
+  drawBackButton();
 }
 
 // ---- OPTIONS SCREEN ----
@@ -1263,15 +1350,22 @@ function drawOptions() {
   const bgNames = { forest: 'Foret', none: 'Rien (sombre)' };
 
   // Background option
-  const selected = optionsIdx === 0;
-  ctx.font = selected ? 'bold 20px monospace' : '18px monospace';
-  ctx.fillStyle = selected ? '#fff' : '#556';
+  const selBg = optionsIdx === 0;
+  ctx.font = selBg ? 'bold 20px monospace' : '18px monospace';
+  ctx.fillStyle = selBg ? '#fff' : '#556';
   ctx.fillText(`Fond : < ${bgNames[save.background]} >`, W / 2, H / 2 - 30);
 
-  if (selected) {
+  // Touch controls option
+  const touchNames = { auto: 'Auto', on: 'Toujours', off: 'Jamais' };
+  const selTouch = optionsIdx === 1;
+  ctx.font = selTouch ? 'bold 20px monospace' : '18px monospace';
+  ctx.fillStyle = selTouch ? '#fff' : '#556';
+  ctx.fillText(`Boutons tactiles : < ${touchNames[save.showTouchControls || 'auto']} >`, W / 2, H / 2 + 5);
+
+  if (selBg || selTouch) {
     ctx.font = '14px monospace';
     ctx.fillStyle = '#445';
-    ctx.fillText('<  >  pour changer', W / 2, H / 2);
+    ctx.fillText(touchUI.show ? 'Touche pour changer' : '<  >  pour changer', W / 2, H / 2 + 30);
   }
 
   // Stats display
@@ -1298,9 +1392,10 @@ function drawOptions() {
   // Navigation
   ctx.font = '14px monospace';
   ctx.fillStyle = '#445';
-  ctx.fillText('ECHAP  retour', W / 2, H / 2 + 180);
+  ctx.fillText(touchUI.show ? '' : 'ECHAP  retour', W / 2, H / 2 + 180);
 
   ctx.restore();
+  drawBackButton();
 }
 
 // ---- WIN SCREEN ----
@@ -1342,7 +1437,7 @@ function drawWin() {
   if (blink) {
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#fff';
-    ctx.fillText('Appuie sur ENTREE pour retourner au menu', W / 2, H / 2 + 130);
+    ctx.fillText(touchUI.show ? 'Touche pour retourner au menu' : 'Appuie sur ENTREE pour retourner au menu', W / 2, H / 2 + 130);
   }
 
   ctx.restore();
