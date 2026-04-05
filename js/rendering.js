@@ -394,7 +394,7 @@ function drawHUD() {
 
   // Gravity flip counter
   ctx.fillStyle = COL.MAGENTA;
-  ctx.fillText(`Gravite: ${player.gravityFlips}`, 90, 48);
+  ctx.fillText(`Gravité: ${player.gravityFlips}`, 90, 48);
 
   // Star preview (compact)
   if (level.stars) {
@@ -455,7 +455,7 @@ function drawHUD() {
     ctx.font = '14px monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#889';
-    ctx.fillText('< > / A D  Bouger   |   ESPACE / W  Sauter   |   ESPACE (air)  Inverser gravite', W / 2, H - 60);
+    ctx.fillText('< > / A D  Bouger   |   ESPACE / W  Sauter   |   ESPACE (air)  Inverser gravité', W / 2, H - 60);
     ctx.fillText('E  Dash   |   SHIFT Gauche  Changer de dimension   |   Glisse & saute sur les murs', W / 2, H - 38);
     ctx.textAlign = 'left';
     ctx.globalAlpha = 1;
@@ -479,7 +479,7 @@ function drawHUD() {
   // Coins (from save)
   const save = SaveManager.getOrCreate();
   ctx.fillStyle = COL.YELLOW;
-  ctx.fillText(`Pieces : ${save.coins}`, 120, H - 20);
+  ctx.fillText(`Pièces : ${save.coins}`, 120, H - 20);
 
   ctx.restore();
 }
@@ -556,7 +556,7 @@ function drawLevelComplete() {
     ctx.shadowColor = COL.PORTAL;
     ctx.shadowBlur = 20;
     ctx.fillStyle = COL.PORTAL;
-    ctx.fillText(playingChallenge ? 'DEFI TERMINE' : 'NIVEAU TERMINE', W / 2, H / 2 - 70);
+    ctx.fillText(playingChallenge ? 'DÉFI TERMINÉ' : 'NIVEAU TERMINÉ', W / 2, H / 2 - 70);
     ctx.shadowBlur = 0;
 
     // Stars
@@ -570,7 +570,7 @@ function drawLevelComplete() {
       ctx.fillStyle = '#aaa';
       ctx.fillText(`Temps : ${lastLevelTime}s  |  Inversions : ${lastLevelFlips}`, W / 2, H / 2 + 20);
       ctx.fillStyle = COL.YELLOW;
-      ctx.fillText(`+${lastLevelCoins} pieces`, W / 2, H / 2 + 45);
+      ctx.fillText(`+${lastLevelCoins} pièces`, W / 2, H / 2 + 45);
 
       // Show next star requirement
       if (lastLevelStars < 5 && level.stars) {
@@ -578,7 +578,7 @@ function drawLevelComplete() {
         if (nextReq) {
           ctx.font = '13px monospace';
           ctx.fillStyle = '#667';
-          ctx.fillText(`Prochaine etoile : <${nextReq.time}s et <${nextReq.flips} inversions`, W / 2, H / 2 + 70);
+          ctx.fillText(`Prochaine étoile : <${nextReq.time}s et <${nextReq.flips} inversions`, W / 2, H / 2 + 70);
         }
       }
     }
@@ -762,13 +762,13 @@ function drawBackButton() {
 const introLines = [
   "Laboratoire Nexus - Rapport d'incident #47",
   "",
-  "L'experience sur l'accelerateur de particules",
-  "a mal tourne...",
+  "L'expérience sur l'accélérateur de particules",
+  "a mal tourné...",
   "",
-  "Une anomalie gravitationnelle s'est propagee",
-  "a travers toute la Terre.",
+  "Une anomalie gravitationnelle s'est propagée",
+  "à travers toute la Terre.",
   "",
-  "La gravite est devenue... instable.",
+  "La gravité est devenue... instable.",
   "",
   "Les animaux sont en danger !",
   "",
@@ -844,7 +844,7 @@ function drawIntro() {
     ctx.font = 'bold 14px monospace';
     ctx.fillStyle = COL.RED;
     ctx.globalAlpha = 0.5 + Math.sin(introTime * 0.1) * 0.3;
-    ctx.fillText('/// ALERTE - ANOMALIE DETECTEE ///', W / 2, startY - 40);
+    ctx.fillText('/// ALERTE - ANOMALIE DÉTECTÉE ///', W / 2, startY - 40);
     ctx.globalAlpha = 1;
   }
 
@@ -866,7 +866,7 @@ function drawIntro() {
     if (blink) {
       ctx.font = '14px monospace';
       ctx.fillStyle = '#556';
-      ctx.fillText(touchUI.show ? 'Touche pour continuer' : 'Appuie sur ESPACE ou ENTREE pour continuer', W / 2, H / 2 + 220);
+      ctx.fillText(touchUI.show ? 'Touche pour continuer' : 'Appuie sur ESPACE ou ENTRÉE pour continuer', W / 2, H / 2 + 220);
     }
   }
 
@@ -910,7 +910,7 @@ function drawTitle() {
 
   ctx.font = '16px monospace';
   ctx.fillStyle = '#668';
-  const tagline = 'Inverse la gravite  ·  Change de dimension  ·  Traverse le vide';
+  const tagline = 'Inverse la gravité  ·  Change de dimension  ·  Traverse le vide';
   const tagWrapped = wrapText(tagline, W - 40);
   for (let t = 0; t < tagWrapped.length; t++) {
     ctx.fillText(tagWrapped[t], W / 2, H / 2 + 10 + t * 22);
@@ -939,7 +939,7 @@ function drawTitle() {
   ctx.font = titleMenuIdx === defiIdx ? 'bold 22px monospace' : '18px monospace';
   ctx.fillStyle = titleMenuIdx === defiIdx ? '#fff' : '#556';
   if (titleMenuIdx === defiIdx && blink) ctx.fillStyle = COL.RED;
-  ctx.fillText('Defis', W / 2, menuY + 35 * defiIdx);
+  ctx.fillText('Défis', W / 2, menuY + 35 * defiIdx);
 
   // "Shop"
   const shopIdx = defiIdx + 1;
@@ -1061,7 +1061,7 @@ function drawSelect() {
     } else {
       ctx.font = '12px monospace';
       ctx.fillStyle = '#444';
-      ctx.fillText('Verrouille', ax, ay + 55 + bob);
+      ctx.fillText('Verrouillé', ax, ay + 55 + bob);
     }
   }
 
@@ -1073,7 +1073,7 @@ function drawSelect() {
   if (blink) {
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#fff';
-    ctx.fillText(touchUI.show ? 'Touche pour jouer' : 'ENTREE ou ESPACE pour jouer', W / 2, H / 2 + 140);
+    ctx.fillText(touchUI.show ? 'Touche pour jouer' : 'ENTRÉE ou ESPACE pour jouer', W / 2, H / 2 + 140);
   }
 
   ctx.restore();
@@ -1172,13 +1172,13 @@ function drawLevelSelect() {
   // Navigation
   ctx.font = '16px monospace';
   ctx.fillStyle = '#556';
-  ctx.fillText(touchUI.show ? 'Touche pour choisir' : '<  >  pour choisir   |   ECHAP  retour', W / 2, H / 2 + 120);
+  ctx.fillText(touchUI.show ? 'Touche pour choisir' : '<  >  pour choisir   |   ÉCHAP  retour', W / 2, H / 2 + 120);
 
   const blink = Math.sin(selectTime * 0.08) > 0;
   if (blink) {
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#fff';
-    ctx.fillText(touchUI.show ? 'Touche pour jouer' : 'ENTREE ou ESPACE pour jouer', W / 2, H / 2 + 155);
+    ctx.fillText(touchUI.show ? 'Touche pour jouer' : 'ENTRÉE ou ESPACE pour jouer', W / 2, H / 2 + 155);
   }
 
   ctx.restore();
@@ -1213,7 +1213,7 @@ function drawChallengeSelect() {
   ctx.shadowColor = COL.RED;
   ctx.shadowBlur = 20;
   ctx.fillStyle = COL.RED;
-  ctx.fillText('DEFIS EXTREMES', W / 2, 80);
+  ctx.fillText('DÉFIS EXTRÊMES', W / 2, 80);
   ctx.shadowBlur = 0;
 
   ctx.font = '14px monospace';
@@ -1276,20 +1276,20 @@ function drawChallengeSelect() {
     } else if (accessible) {
       ctx.font = '11px monospace';
       ctx.fillStyle = '#554';
-      ctx.fillText('Non termine', cx, cy + 40 + bob);
+      ctx.fillText('Non terminé', cx, cy + 40 + bob);
     }
   }
 
   // Navigation
   ctx.font = '16px monospace';
   ctx.fillStyle = '#556';
-  ctx.fillText(touchUI.show ? 'Touche pour choisir' : '<  >  pour choisir   |   ECHAP  retour', W / 2, H / 2 + 120);
+  ctx.fillText(touchUI.show ? 'Touche pour choisir' : '<  >  pour choisir   |   ÉCHAP  retour', W / 2, H / 2 + 120);
 
   const blink = Math.sin(selectTime * 0.08) > 0;
   if (blink) {
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = COL.RED;
-    ctx.fillText(touchUI.show ? 'Touche pour jouer' : 'ENTREE ou ESPACE pour jouer', W / 2, H / 2 + 155);
+    ctx.fillText(touchUI.show ? 'Touche pour jouer' : 'ENTRÉE ou ESPACE pour jouer', W / 2, H / 2 + 155);
   }
 
   ctx.restore();
@@ -1394,7 +1394,7 @@ function drawShop() {
     } else {
       ctx.font = 'bold 13px monospace';
       ctx.fillStyle = canBuy ? COL.YELLOW : '#555';
-      ctx.fillText(`${ANIMALS[i].price} pieces`, ax, ay + 56 + bob);
+      ctx.fillText(`${ANIMALS[i].price} pièces`, ax, ay + 56 + bob);
     }
   }
 
@@ -1405,13 +1405,13 @@ function drawShop() {
     const canBuy = Shop.canBuy(Shop.selectedIdx, save);
     ctx.font = '16px monospace';
     ctx.fillStyle = canBuy ? COL.GREEN : '#555';
-    ctx.fillText(canBuy ? (touchUI.show ? 'Touche pour acheter' : 'ENTREE pour acheter') : 'Pas assez de pieces', W / 2, H / 2 + 110);
+    ctx.fillText(canBuy ? (touchUI.show ? 'Touche pour acheter' : 'ENTRÉE pour acheter') : 'Pas assez de pièces', W / 2, H / 2 + 110);
   }
 
   // Navigation
   ctx.font = '14px monospace';
   ctx.fillStyle = '#445';
-  ctx.fillText(touchUI.show ? 'Touche pour choisir' : '<  >  pour choisir   |   ECHAP  retour', W / 2, H / 2 + 150);
+  ctx.fillText(touchUI.show ? 'Touche pour choisir' : '<  >  pour choisir   |   ÉCHAP  retour', W / 2, H / 2 + 150);
 
   ctx.restore();
   drawBackButton();
@@ -1447,7 +1447,7 @@ function drawOptions() {
 
   const save = SaveManager.getOrCreate();
   const bgOptions = ['forest', 'none'];
-  const bgNames = { forest: 'Foret', none: 'Rien (sombre)' };
+  const bgNames = { forest: 'Forêt', none: 'Rien (sombre)' };
 
   // Background option
   const selBg = optionsIdx === 0;
@@ -1471,13 +1471,13 @@ function drawOptions() {
   // Stats display
   ctx.font = '16px monospace';
   ctx.fillStyle = '#556';
-  ctx.fillText(`Niveaux termines : ${save.completedLevels.length} / ${levels.length}`, W / 2, H / 2 + 50);
+  ctx.fillText(`Niveaux terminés : ${save.completedLevels.length} / ${levels.length}`, W / 2, H / 2 + 50);
   ctx.fillText(`Morts totales : ${save.totalDeaths}`, W / 2, H / 2 + 75);
 
   // Total stars
   let totalStars = 0;
   for (const k in save.levelStars) totalStars += save.levelStars[k];
-  ctx.fillText(`Etoiles : ${totalStars} / ${levels.length * 5}`, W / 2, H / 2 + 100);
+  ctx.fillText(`Étoiles : ${totalStars} / ${levels.length * 5}`, W / 2, H / 2 + 100);
 
   // Challenge stats
   const challCompleted = (save.challengeCompleted || []).length;
@@ -1485,14 +1485,14 @@ function drawOptions() {
     let challStars = 0;
     for (const k in (save.challengeStars || {})) challStars += save.challengeStars[k];
     ctx.fillStyle = COL.RED;
-    ctx.fillText(`Defis termines : ${challCompleted} / ${challengeLevels.length}`, W / 2, H / 2 + 130);
-    ctx.fillText(`Etoiles defis : ${challStars} / ${challengeLevels.length * 5}`, W / 2, H / 2 + 155);
+    ctx.fillText(`Défis terminés : ${challCompleted} / ${challengeLevels.length}`, W / 2, H / 2 + 130);
+    ctx.fillText(`Étoiles défis : ${challStars} / ${challengeLevels.length * 5}`, W / 2, H / 2 + 155);
   }
 
   // Navigation
   ctx.font = '14px monospace';
   ctx.fillStyle = '#445';
-  ctx.fillText(touchUI.show ? '' : 'ECHAP  retour', W / 2, H / 2 + 180);
+  ctx.fillText(touchUI.show ? '' : 'ÉCHAP  retour', W / 2, H / 2 + 180);
 
   ctx.restore();
   drawBackButton();
@@ -1513,7 +1513,7 @@ function drawWin() {
   ctx.shadowColor = COL.PORTAL;
   ctx.shadowBlur = 30;
   ctx.fillStyle = COL.PORTAL;
-  ctx.fillText(playingChallenge ? 'DEFIS CONQUIS !' : 'ANIMAL SAUVE !', W / 2, H / 2 - 60);
+  ctx.fillText(playingChallenge ? 'DÉFIS CONQUIS !' : 'ANIMAL SAUVÉ !', W / 2, H / 2 - 60);
   ctx.shadowBlur = 0;
 
   ctx.font = '24px monospace';
@@ -1531,13 +1531,13 @@ function drawWin() {
   let totalStars = 0;
   for (const k in (save[starsKey] || {})) totalStars += save[starsKey][k];
   ctx.fillStyle = COL.YELLOW;
-  ctx.fillText(`Etoiles totales : ${totalStars} / ${levelList.length * 5}`, W / 2, H / 2 + 80);
+  ctx.fillText(`Étoiles totales : ${totalStars} / ${levelList.length * 5}`, W / 2, H / 2 + 80);
 
   const blink = Math.sin(gameTime * 0.08) > 0;
   if (blink) {
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#fff';
-    ctx.fillText(touchUI.show ? 'Touche pour retourner au menu' : 'Appuie sur ENTREE pour retourner au menu', W / 2, H / 2 + 130);
+    ctx.fillText(touchUI.show ? 'Touche pour retourner au menu' : 'Appuie sur ENTRÉE pour retourner au menu', W / 2, H / 2 + 130);
   }
 
   ctx.restore();
