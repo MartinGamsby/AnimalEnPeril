@@ -43,8 +43,10 @@ const COL = {
 
 let W, H;
 function resize() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
+  const vv = window.visualViewport;
+  W = canvas.width = vv ? vv.width : window.innerWidth;
+  H = canvas.height = vv ? vv.height : window.innerHeight;
 }
 resize();
 window.addEventListener('resize', resize);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);

@@ -2,6 +2,25 @@
 // Rendering Functions
 // ============================================================
 
+// Word-wrap helper for canvas text (uses current ctx.font)
+function wrapText(text, maxWidth) {
+  if (!text) return [text];
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(test).width > maxWidth) {
+      if (cur) lines.push(cur);
+      cur = w;
+    } else {
+      cur = test;
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines.length ? lines : [''];
+}
+
 function drawBG() {
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = player.shifted ? 'rgba(14,8,32,0.7)' : 'rgba(8,8,22,0.7)';
@@ -791,42 +810,54 @@ function drawIntro() {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Warning header
+  // Build wrapped visual lines with styling info
+  const maxTextW = W - 40;
+  const visualLines = [];
+  for (let i = 0; i < introLines.length; i++) {
+    const line = introLines[i];
+    let font, color;
+    if (i === 0) { font = 'bold 16px monospace'; color = COL.CYAN; }
+    else if (line.includes('danger')) { font = 'bold 18px monospace'; color = COL.RED; }
+    else if (line.includes('sauver')) { font = 'bold 18px monospace'; color = COL.GREEN; }
+    else { font = '16px monospace'; color = '#99aacc'; }
+
+    if (!line) {
+      visualLines.push({ text: '', font, color });
+      continue;
+    }
+    ctx.font = font;
+    for (const sub of wrapText(line, maxTextW)) {
+      visualLines.push({ text: sub, font, color });
+    }
+  }
+
+  // Typewriter over visual lines
+  const charsPerFrame = 1.2;
+  const totalChars = Math.floor(Math.max(0, introTime - 40) * charsPerFrame);
+  let charCount = 0;
+  const lineH = 28;
+  const totalH = visualLines.length * lineH;
+  const startY = H / 2 - totalH / 2;
+
+  // Warning header (positioned above the text block)
   if (introTime > 20) {
     ctx.font = 'bold 14px monospace';
     ctx.fillStyle = COL.RED;
     ctx.globalAlpha = 0.5 + Math.sin(introTime * 0.1) * 0.3;
-    ctx.fillText('/// ALERTE - ANOMALIE DETECTEE ///', W / 2, H / 2 - 200);
+    ctx.fillText('/// ALERTE - ANOMALIE DETECTEE ///', W / 2, startY - 40);
     ctx.globalAlpha = 1;
   }
 
-  // Typewriter text
-  const charsPerFrame = 1.2;
-  const totalChars = Math.floor(Math.max(0, introTime - 40) * charsPerFrame);
-  let charCount = 0;
-  const startY = H / 2 - 130;
-
-  for (let i = 0; i < introLines.length; i++) {
-    const line = introLines[i];
+  for (let i = 0; i < visualLines.length; i++) {
+    const vl = visualLines[i];
     if (charCount >= totalChars) break;
-    const visible = Math.min(line.length, totalChars - charCount);
-    const text = line.substring(0, visible);
-    charCount += line.length;
-
-    if (i === 0) {
-      ctx.font = 'bold 16px monospace';
-      ctx.fillStyle = COL.CYAN;
-    } else if (line.includes('danger')) {
-      ctx.font = 'bold 18px monospace';
-      ctx.fillStyle = COL.RED;
-    } else if (line.includes('sauver')) {
-      ctx.font = 'bold 18px monospace';
-      ctx.fillStyle = COL.GREEN;
-    } else {
-      ctx.font = '16px monospace';
-      ctx.fillStyle = '#99aacc';
+    const visible = Math.min(vl.text.length, totalChars - charCount);
+    charCount += vl.text.length || 1; // empty lines consume 1 char for pacing
+    if (visible > 0) {
+      ctx.font = vl.font;
+      ctx.fillStyle = vl.color;
+      ctx.fillText(vl.text.substring(0, visible), W / 2, startY + i * lineH);
     }
-    ctx.fillText(text, W / 2, startY + i * 28);
   }
 
   // Skip prompt
@@ -870,19 +901,23 @@ function drawTitle() {
   ctx.shadowColor = COL.CYAN;
   ctx.shadowBlur = 30;
   ctx.fillStyle = COL.CYAN;
-  ctx.fillText('ANIMAL', W / 2, H / 2 - 100);
+  ctx.fillText('ANIMAL', W / 2, H / 2 - 90);
 
   ctx.shadowColor = COL.MAGENTA;
   ctx.fillStyle = COL.MAGENTA;
-  ctx.fillText('en PERIL', W / 2, H / 2 - 40);
+  ctx.fillText('en PÉRIL', W / 2, H / 2 - 60);
   ctx.shadowBlur = 0;
 
   ctx.font = '16px monospace';
   ctx.fillStyle = '#668';
-  ctx.fillText('Inverse la gravite  ·  Change de dimension  ·  Traverse le vide', W / 2, H / 2 + 10);
+  const tagline = 'Inverse la gravite  ·  Change de dimension  ·  Traverse le vide';
+  const tagWrapped = wrapText(tagline, W - 40);
+  for (let t = 0; t < tagWrapped.length; t++) {
+    ctx.fillText(tagWrapped[t], W / 2, H / 2 + 10 + t * 22);
+  }
 
-  // Menu options
-  const menuY = H / 2 + 60;
+  // Menu options (shift down if tagline wrapped)
+  const menuY = H / 2 + 60 + (tagWrapped.length - 1) * 22;
   const blink = Math.sin(titleTime * 0.08) > 0;
 
   // "New Game"
@@ -923,7 +958,11 @@ function drawTitle() {
   // Controls hint
   ctx.font = '13px monospace';
   ctx.fillStyle = '#334';
-  ctx.fillText(touchUI.show ? 'Utilise les boutons tactiles pour jouer' : '< > / A D  Bouger   |   ESPACE / W  Sauter & Inverser   |   E  Dash   |   SHIFT Gauche  Changer de dimension', W / 2, H - 30);
+  const hintText = touchUI.show ? 'Utilise les boutons tactiles pour jouer' : '< > / A D  Bouger   |   ESPACE / W  Sauter & Inverser   |   E  Dash   |   SHIFT Gauche  Changer de dimension';
+  const hintWrapped = wrapText(hintText, W - 40);
+  for (let h = 0; h < hintWrapped.length; h++) {
+    ctx.fillText(hintWrapped[h], W / 2, H - 30 - (hintWrapped.length - 1 - h) * 18);
+  }
 
   ctx.restore();
 }

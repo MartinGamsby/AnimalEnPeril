@@ -44,7 +44,7 @@ function getTouchBtns() {
   const sm = Math.round(s * 0.7);
   return [
     { key: 'ArrowLeft',  x: pad,              y: by,              w: as,         h: as, label: '\u25C0',   color: COL.CYAN },
-    { key: 'ArrowRight', x: pad + as + gap,   y: by,              w: as,         h: as, label: '\u25B6',   color: COL.CYAN },
+    { key: 'ArrowRight', x: pad + as,         y: by,              w: as,         h: as, label: '\u25B6',   color: COL.CYAN },
     { key: 'Space',      x: W-pad-s*2-gap,    y: sby,             w: s*2+gap,    h: s, label: 'SAUT',     color: COL.MAGENTA },
     { key: 'KeyE',       x: W-pad-s,          y: sby - s - gap,   w: s,          h: s, label: 'DASH',     color: COL.CYAN,  id: 'dash' },
     { key: 'ShiftLeft',  x: W-pad-s*2-gap,    y: sby - s - gap,   w: s,          h: s, label: 'DIM',      color: COL.DIM_B, id: 'shift' },
@@ -57,10 +57,11 @@ function _hitBtn(px, py, btn) {
   return px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h;
 }
 
-function _hitsAnyBtn(px, py) {
+function _nearAnyBtn(px, py, margin) {
   const btns = getTouchBtns();
   for (const btn of btns) {
-    if (_hitBtn(px, py, btn)) return true;
+    if (px >= btn.x - margin && px <= btn.x + btn.w + margin &&
+        py >= btn.y - margin && py <= btn.y + btn.h + margin) return true;
   }
   return false;
 }
@@ -69,6 +70,8 @@ function _rebuildTouchKeys() {
   if (!touchUI.show) { input.touchKeys = {}; return; }
   const btns = getTouchBtns();
   const newKeys = {};
+
+  const margin = 30; // dead zone around buttons to avoid accidental jumps
 
   // Evaluate all active touch points
   for (const pos of _activeTouches.values()) {
@@ -82,8 +85,8 @@ function _rebuildTouchKeys() {
         hitSomething = true;
       }
     }
-    // Tap anywhere (not on a button) = jump
-    if (!hitSomething && !newKeys['Space']) {
+    // Tap anywhere (not on or near a button) = jump
+    if (!hitSomething && !_nearAnyBtn(pos.x, pos.y, margin) && !newKeys['Space']) {
       if (!input.touchKeys['Space'] && !newKeys['Space']) {
         input.just.add('Space');
       }
@@ -103,7 +106,7 @@ function _rebuildTouchKeys() {
         hitSomething = true;
       }
     }
-    if (!hitSomething && !newKeys['Space']) {
+    if (!hitSomething && !_nearAnyBtn(_mousePos.x, _mousePos.y, margin) && !newKeys['Space']) {
       if (!input.touchKeys['Space'] && !newKeys['Space']) {
         input.just.add('Space');
       }
