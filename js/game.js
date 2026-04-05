@@ -2,7 +2,7 @@
 // Main Game Loop & State Management
 // ============================================================
 
-// States: INTRO, TITLE, SELECT, LEVEL_SELECT, SHOP, OPTIONS, PLAYING, DEAD, LEVEL_COMPLETE, WIN
+// States: INTRO, TITLE, SELECT, LEVEL_SELECT, CHALLENGE_SELECT, SHOP, OPTIONS, PLAYING, DEAD, LEVEL_COMPLETE, WIN
 let state = 'INTRO';
 let levelIdx = 0;
 let level = null;
@@ -14,18 +14,23 @@ let selectTime = 0;
 let shopTime = 0;
 let optionsTime = 0;
 let gameTime = 0;
+let levelTime = 0;
 let deaths = 0;
 let selectedAnimal = 0;
 let titleMenuIdx = 0;
 let levelSelectIdx = 0;
+let challengeSelectIdx = 0;
 let optionsIdx = 0;
 let lastLevelStars = 0;
 let lastLevelCoins = 0;
 let lastLevelFlips = 0;
+let lastLevelTime = 0;
+let playingChallenge = false;
+let selectReturnTo = 'PLAYING'; // Where to go after animal SELECT: 'PLAYING', 'LEVEL_SELECT', 'CHALLENGE_SELECT'
 
 function getTitleMenuCount() {
-  // New Game, [Continue], Shop, Options
-  return SaveManager.hasSave() ? 4 : 3;
+  // New Game, [Continue], Défis, Shop, Options
+  return SaveManager.hasSave() ? 5 : 4;
 }
 
 function applyBackground(bg) {
@@ -68,23 +73,29 @@ function gameLoop(ts) {
     if (justPressed('Enter') || justPressed('Space')) {
       Audio.init();
       const hasSave = SaveManager.hasSave();
+      const save = SaveManager.getOrCreate();
       if (titleMenuIdx === 0) {
-        // New game
+        // New game → pick animal → start level 0
+        selectedAnimal = save.selectedAnimal || 0;
+        if (!save.unlockedAnimals.includes(ANIMALS[selectedAnimal].icon)) selectedAnimal = 0;
+        selectReturnTo = 'PLAYING';
         state = 'SELECT';
         selectTime = 0;
-        selectedAnimal = 0;
       } else if (hasSave && titleMenuIdx === 1) {
-        // Continue
-        const save = SaveManager.getOrCreate();
+        // Continue → pick animal → level select
         selectedAnimal = save.selectedAnimal || 0;
-        // Verify the animal is unlocked
-        if (!save.unlockedAnimals.includes(ANIMALS[selectedAnimal].icon)) {
-          selectedAnimal = 0;
-        }
-        state = 'LEVEL_SELECT';
+        if (!save.unlockedAnimals.includes(ANIMALS[selectedAnimal].icon)) selectedAnimal = 0;
+        selectReturnTo = 'LEVEL_SELECT';
+        state = 'SELECT';
         selectTime = 0;
-        levelSelectIdx = Math.min(save.completedLevels.length, levels.length - 1);
       } else if (titleMenuIdx === (hasSave ? 2 : 1)) {
+        // Défis → pick animal → challenge select
+        selectedAnimal = save.selectedAnimal || 0;
+        if (!save.unlockedAnimals.includes(ANIMALS[selectedAnimal].icon)) selectedAnimal = 0;
+        selectReturnTo = 'CHALLENGE_SELECT';
+        state = 'SELECT';
+        selectTime = 0;
+      } else if (titleMenuIdx === (hasSave ? 3 : 2)) {
         // Shop
         state = 'SHOP';
         shopTime = 0;
@@ -119,10 +130,24 @@ function gameLoop(ts) {
         save.selectedAnimal = selectedAnimal;
         SaveManager.save(save);
         Audio.levelStart();
-        loadLevel(0);
-        state = 'PLAYING';
-        gameTime = 0;
-        deaths = 0;
+
+        if (selectReturnTo === 'LEVEL_SELECT') {
+          state = 'LEVEL_SELECT';
+          selectTime = 0;
+          levelSelectIdx = Math.min(save.completedLevels.length, levels.length - 1);
+        } else if (selectReturnTo === 'CHALLENGE_SELECT') {
+          state = 'CHALLENGE_SELECT';
+          selectTime = 0;
+          challengeSelectIdx = 0;
+        } else {
+          // PLAYING — new game from level 0
+          playingChallenge = false;
+          loadLevel(0);
+          state = 'PLAYING';
+          gameTime = 0;
+          levelTime = 0;
+          deaths = 0;
+        }
       } else {
         Audio.error();
       }
@@ -149,9 +174,51 @@ function gameLoop(ts) {
       const accessible = levelSelectIdx === 0 || save.completedLevels.includes(levelSelectIdx - 1);
       if (accessible) {
         Audio.levelStart();
+        playingChallenge = false;
         loadLevel(levelSelectIdx);
         state = 'PLAYING';
         gameTime = 0;
+        levelTime = 0;
+        deaths = 0;
+      } else {
+        Audio.error();
+      }
+    }
+  } else if (state === 'CHALLENGE_SELECT') {
+    selectTime++;
+    updateParticles();
+    drawChallengeSelect();
+
+    const save = SaveManager.getOrCreate();
+
+    if (justPressed('ArrowLeft') || justPressed('KeyA')) {
+      challengeSelectIdx = (challengeSelectIdx - 1 + challengeLevels.length) % challengeLevels.length;
+    }
+    if (justPressed('ArrowRight') || justPressed('KeyD')) {
+      challengeSelectIdx = (challengeSelectIdx + 1) % challengeLevels.length;
+    }
+    if (justPressed('Escape')) {
+      state = 'TITLE';
+      titleTime = 0;
+    }
+    if (justPressed('Enter') || justPressed('Space')) {
+      // Challenges: first is always accessible, rest need previous completed
+      if (!save.challengeCompleted) save.challengeCompleted = [];
+      const accessible = challengeSelectIdx === 0 || save.challengeCompleted.includes(challengeSelectIdx - 1);
+      if (accessible) {
+        Audio.levelStart();
+        playingChallenge = true;
+        levelIdx = challengeSelectIdx;
+        level = challengeLevels[challengeSelectIdx];
+        player.orbs = 0;
+        player.gravityFlips = 0;
+        for (const o of level.orbs) o.collected = false;
+        resetPlayer();
+        cam.x = player.x - W / 2; cam.y = player.y - H / 2;
+        for (const p of particles) p.active = false;
+        state = 'PLAYING';
+        gameTime = 0;
+        levelTime = 0;
         deaths = 0;
       } else {
         Audio.error();
@@ -205,6 +272,7 @@ function gameLoop(ts) {
     }
   } else if (state === 'PLAYING') {
     gameTime++;
+    levelTime++;
     updatePlayer();
     updateLasers();
     updateCam(player.x + player.w / 2, player.y + player.h / 2, level.w, level.h);
@@ -229,7 +297,9 @@ function gameLoop(ts) {
       for (const o of level.orbs) o.collected = false;
       player.orbs = 0;
       player.gravityFlips = 0;
+      deaths = 0;
       gameTime = 0;
+      levelTime = 0;
     }
     if (justPressed('Escape')) {
       state = 'TITLE';
@@ -279,11 +349,24 @@ function gameLoop(ts) {
     updateCam(player.x + player.w / 2, player.y + player.h / 2, level.w, level.h);
 
     if (levelCompleteTimer <= 0) {
-      if (levelIdx + 1 < levels.length) {
-        loadLevel(levelIdx + 1);
+      const levelList = playingChallenge ? challengeLevels : levels;
+      if (levelIdx + 1 < levelList.length) {
+        if (playingChallenge) {
+          levelIdx = levelIdx + 1;
+          level = challengeLevels[levelIdx];
+          player.orbs = 0;
+          player.gravityFlips = 0;
+          for (const o of level.orbs) o.collected = false;
+          resetPlayer();
+          cam.x = player.x - W / 2; cam.y = player.y - H / 2;
+          for (const p of particles) p.active = false;
+        } else {
+          loadLevel(levelIdx + 1);
+        }
         Audio.levelStart();
         state = 'PLAYING';
         gameTime = 0;
+        levelTime = 0;
       } else {
         state = 'WIN';
       }

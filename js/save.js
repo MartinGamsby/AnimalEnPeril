@@ -13,8 +13,13 @@ const SaveManager = {
       completedLevels: [],
       levelStars: {},
       levelBestFlips: {},
+      levelBestTime: {},
       background: 'forest',
       totalDeaths: 0,
+      challengeCompleted: [],
+      challengeStars: {},
+      challengeBestFlips: {},
+      challengeBestTime: {},
     };
   },
 

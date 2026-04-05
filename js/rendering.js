@@ -107,6 +107,50 @@ function drawTiles() {
           ctx.fillStyle = `rgba(${100 + Math.sin(gameTime * 0.05 + i) * 50|0},0,${100 + Math.cos(gameTime * 0.07 + i) * 50|0},0.4)`;
           ctx.fillRect(nx - 3, ny - 3, 6, 6);
         }
+      } else if (t === 12) {
+        // Floor hole — dark pit opening at top
+        ctx.fillStyle = '#050008';
+        ctx.fillRect(tx, ty, C.TILE, C.TILE);
+        // Ragged edges
+        ctx.fillStyle = COL.WALL;
+        ctx.beginPath();
+        ctx.moveTo(tx, ty); ctx.lineTo(tx + 4, ty + 6); ctx.lineTo(tx, ty + 10);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(tx + C.TILE, ty); ctx.lineTo(tx + C.TILE - 4, ty + 6); ctx.lineTo(tx + C.TILE, ty + 10);
+        ctx.fill();
+        // Depth glow
+        const holeGrad = ctx.createLinearGradient(tx, ty, tx, ty + C.TILE);
+        holeGrad.addColorStop(0, 'rgba(80,0,120,0.3)');
+        holeGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = holeGrad;
+        ctx.fillRect(tx, ty, C.TILE, C.TILE);
+        // Animated particles inside
+        if (gameTime % 6 === 0) {
+          emitParticle(c * C.TILE + rng(4, 28), r * C.TILE + rng(4, 28), rng(-0.3, 0.3), rng(0.2, 0.8), 15, 'rgba(120,0,180,0.4)', 1);
+        }
+      } else if (t === 13) {
+        // Ceiling hole — dark pit opening at bottom
+        ctx.fillStyle = '#050008';
+        ctx.fillRect(tx, ty, C.TILE, C.TILE);
+        // Ragged edges
+        ctx.fillStyle = COL.WALL;
+        ctx.beginPath();
+        ctx.moveTo(tx, ty + C.TILE); ctx.lineTo(tx + 4, ty + C.TILE - 6); ctx.lineTo(tx, ty + C.TILE - 10);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(tx + C.TILE, ty + C.TILE); ctx.lineTo(tx + C.TILE - 4, ty + C.TILE - 6); ctx.lineTo(tx + C.TILE, ty + C.TILE - 10);
+        ctx.fill();
+        // Depth glow
+        const cHoleGrad = ctx.createLinearGradient(tx, ty + C.TILE, tx, ty);
+        cHoleGrad.addColorStop(0, 'rgba(80,0,120,0.3)');
+        cHoleGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = cHoleGrad;
+        ctx.fillRect(tx, ty, C.TILE, C.TILE);
+        // Dripping particles
+        if (gameTime % 8 === 0) {
+          emitParticle(c * C.TILE + rng(4, 28), r * C.TILE + rng(4, 28), rng(-0.3, 0.3), rng(-0.8, -0.2), 15, 'rgba(120,0,180,0.4)', 1);
+        }
       }
     }
   }
@@ -118,33 +162,53 @@ function drawLasers() {
   const oy = -cam.y + cam.shakeY;
 
   for (const l of level.lasers) {
+    const w = l._currentWidth || l.width || 3;
+    const wobOff = l._wobbleOffset || 0;
+    const angle = l._currentAngle || 0;
+    const beamLen = 200;
+
+    let sx, sy, ex, ey;
+    // currentX/currentY already include diagonal movement + wobble from updateLasers()
     if (l.vertical) {
-      const lx = l.x + ox;
-      const ly = (l.currentY || l.y1) + oy;
-
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = 'rgba(255,50,50,0.15)';
-      ctx.lineWidth = 12;
-      ctx.beginPath(); ctx.moveTo(lx, ly - 200); ctx.lineTo(lx, ly); ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,80,80,0.3)';
-      ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.moveTo(lx, ly - 200); ctx.lineTo(lx, ly); ctx.stroke();
-      ctx.restore();
-
-      ctx.strokeStyle = COL.RED;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(lx, ly - 200); ctx.lineTo(lx, ly); ctx.stroke();
-
-      ctx.fillStyle = COL.RED;
-      ctx.beginPath(); ctx.arc(lx, ly, 5 + Math.sin(gameTime * 0.2) * 1.5, 0, Math.PI * 2); ctx.fill();
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.4;
-      ctx.fillStyle = '#ff8888';
-      ctx.beginPath(); ctx.arc(lx, ly, 9, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
+      sx = (l.currentX != null ? l.currentX : l.x) + ox;
+      sy = (l.currentY != null ? l.currentY : l.y1) + oy;
+      ex = sx + Math.sin(angle) * beamLen;
+      ey = sy - Math.cos(angle) * beamLen;
+    } else if (l.horizontal) {
+      sx = (l.currentX != null ? l.currentX : l.x1) + ox;
+      sy = (l.currentY != null ? l.currentY : l.y) + oy;
+      ex = sx + Math.cos(angle) * beamLen;
+      ey = sy + Math.sin(angle) * beamLen;
+    } else {
+      continue;
     }
+
+    // Glow
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(255,50,50,0.12)';
+    ctx.lineWidth = w * 4;
+    ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(sx, sy); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,80,80,0.25)';
+    ctx.lineWidth = w * 1.5;
+    ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(sx, sy); ctx.stroke();
+    ctx.restore();
+
+    // Core beam
+    ctx.strokeStyle = COL.RED;
+    ctx.lineWidth = Math.max(1.5, w * 0.7);
+    ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(sx, sy); ctx.stroke();
+
+    // Emitter dot
+    const dotR = 3 + w * 0.5 + Math.sin(gameTime * 0.2) * 1.5;
+    ctx.fillStyle = COL.RED;
+    ctx.beginPath(); ctx.arc(sx, sy, dotR, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#ff8888';
+    ctx.beginPath(); ctx.arc(sx, sy, dotR + 4, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
 }
 
@@ -303,10 +367,23 @@ function drawHUD() {
   ctx.fillText(`${player.orbs}/${level.reqOrbs}`, 40, 20);
   ctx.shadowBlur = 0;
 
-  // Gravity flip counter
+  // Time counter
+  const timeSec = Math.floor(levelTime / 60);
   ctx.font = '14px monospace';
+  ctx.fillStyle = COL.CYAN;
+  ctx.fillText(`${timeSec}s`, 40, 48);
+
+  // Gravity flip counter
   ctx.fillStyle = COL.MAGENTA;
-  ctx.fillText(`Gravite: ${player.gravityFlips}`, 40, 48);
+  ctx.fillText(`Gravite: ${player.gravityFlips}`, 90, 48);
+
+  // Star preview (compact)
+  if (level.stars) {
+    const curStars = Shop.getStars(level, timeSec, player.gravityFlips);
+    ctx.font = '12px monospace';
+    ctx.fillStyle = COL.YELLOW;
+    ctx.fillText('★'.repeat(curStars) + '☆'.repeat(5 - curStars), 40, 67);
+  }
 
   // Level name
   if (gameTime < 120) {
@@ -369,6 +446,10 @@ function drawHUD() {
   ctx.fillStyle = '#556';
   ctx.fillText(`Morts : ${deaths}`, 15, H - 20);
 
+  // Restart hint
+  ctx.fillStyle = '#556';
+  ctx.fillText('[R] Recommencer', W - 150, H - 20);
+
   // Coins (from save)
   const save = SaveManager.getOrCreate();
   ctx.fillStyle = COL.YELLOW;
@@ -405,17 +486,13 @@ function drawDeathScreen() {
 }
 
 function drawStars(cx, cy, count, size) {
-  for (let i = 0; i < 3; i++) {
-    const sx = cx + (i - 1) * (size * 2.5);
+  for (let i = 0; i < 5; i++) {
+    const sx = cx + (i - 2) * (size * 2.2);
     const filled = i < count;
     ctx.save();
     ctx.translate(sx, cy);
     ctx.beginPath();
     for (let j = 0; j < 5; j++) {
-      const a = -Math.PI / 2 + j * Math.PI * 2 / 5;
-      const r = j % 2 === 0 ? size : size * 0.4;
-      if (j === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-      // Alternating outer/inner points
       const aOuter = -Math.PI / 2 + j * Math.PI * 2 / 5;
       const aInner = -Math.PI / 2 + (j + 0.5) * Math.PI * 2 / 5;
       ctx.lineTo(Math.cos(aOuter) * size, Math.sin(aOuter) * size);
@@ -425,7 +502,7 @@ function drawStars(cx, cy, count, size) {
     if (filled) {
       ctx.fillStyle = COL.YELLOW;
       ctx.shadowColor = COL.YELLOW;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 6;
       ctx.fill();
       ctx.shadowBlur = 0;
     } else {
@@ -453,21 +530,31 @@ function drawLevelComplete() {
     ctx.shadowColor = COL.PORTAL;
     ctx.shadowBlur = 20;
     ctx.fillStyle = COL.PORTAL;
-    ctx.fillText('NIVEAU TERMINE', W / 2, H / 2 - 50);
+    ctx.fillText(playingChallenge ? 'DEFI TERMINE' : 'NIVEAU TERMINE', W / 2, H / 2 - 70);
     ctx.shadowBlur = 0;
 
     // Stars
     if (progress > 0.3) {
-      drawStars(W / 2, H / 2, lastLevelStars, 16);
+      drawStars(W / 2, H / 2 - 20, lastLevelStars, 14);
     }
 
     // Stats
     if (progress > 0.4) {
-      ctx.font = '18px monospace';
+      ctx.font = '16px monospace';
       ctx.fillStyle = '#aaa';
-      ctx.fillText(`Inversions de gravite : ${lastLevelFlips}`, W / 2, H / 2 + 40);
+      ctx.fillText(`Temps : ${lastLevelTime}s  |  Inversions : ${lastLevelFlips}`, W / 2, H / 2 + 20);
       ctx.fillStyle = COL.YELLOW;
-      ctx.fillText(`+${lastLevelCoins} pieces`, W / 2, H / 2 + 65);
+      ctx.fillText(`+${lastLevelCoins} pieces`, W / 2, H / 2 + 45);
+
+      // Show next star requirement
+      if (lastLevelStars < 5 && level.stars) {
+        const nextReq = level.stars[5 - lastLevelStars - 1];
+        if (nextReq) {
+          ctx.font = '13px monospace';
+          ctx.fillStyle = '#667';
+          ctx.fillText(`Prochaine etoile : <${nextReq.time}s et <${nextReq.flips} inversions`, W / 2, H / 2 + 70);
+        }
+      }
     }
   }
 
@@ -664,8 +751,15 @@ function drawTitle() {
     ctx.fillText('Continuer', W / 2, menuY + 35);
   }
 
+  // "Défis"
+  const defiIdx = SaveManager.hasSave() ? 2 : 1;
+  ctx.font = titleMenuIdx === defiIdx ? 'bold 22px monospace' : '18px monospace';
+  ctx.fillStyle = titleMenuIdx === defiIdx ? '#fff' : '#556';
+  if (titleMenuIdx === defiIdx && blink) ctx.fillStyle = COL.RED;
+  ctx.fillText('Defis', W / 2, menuY + 35 * defiIdx);
+
   // "Shop"
-  const shopIdx = SaveManager.hasSave() ? 2 : 1;
+  const shopIdx = defiIdx + 1;
   ctx.font = titleMenuIdx === shopIdx ? 'bold 22px monospace' : '18px monospace';
   ctx.fillStyle = titleMenuIdx === shopIdx ? '#fff' : '#556';
   if (titleMenuIdx === shopIdx && blink) ctx.fillStyle = COL.YELLOW;
@@ -902,6 +996,116 @@ function drawLevelSelect() {
   ctx.restore();
 }
 
+// ---- CHALLENGE SELECT SCREEN ----
+function drawChallengeSelect() {
+  ctx.fillStyle = COL.BG;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(255,50,50,0.06)';
+  ctx.lineWidth = 1;
+  const off = selectTime * 0.25;
+  for (let x = -C.TILE + (off % C.TILE); x < W; x += C.TILE) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = -C.TILE + (off % C.TILE); y < H; y += C.TILE) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  if (selectTime % 2 === 0) {
+    emitParticle(rng(0, W), H + 10, rng(-0.3, 0.3), rng(-0.8, -0.3), 80, 'rgba(255,50,50,0.3)', rng(1, 2.5));
+  }
+  drawParticles(0, 0);
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  ctx.font = 'bold 36px monospace';
+  ctx.shadowColor = COL.RED;
+  ctx.shadowBlur = 20;
+  ctx.fillStyle = COL.RED;
+  ctx.fillText('DEFIS EXTREMES', W / 2, 80);
+  ctx.shadowBlur = 0;
+
+  ctx.font = '14px monospace';
+  ctx.fillStyle = '#665';
+  ctx.fillText('Niveaux brutaux pour les meilleurs joueurs', W / 2, 115);
+
+  const save = SaveManager.getOrCreate();
+  if (!save.challengeCompleted) save.challengeCompleted = [];
+  if (!save.challengeStars) save.challengeStars = {};
+
+  const cardW = 150;
+  const maxVisible = Math.min(challengeLevels.length, Math.floor((W - 80) / cardW));
+  const halfVis = Math.floor(maxVisible / 2);
+  let scrollOffset = Math.max(0, Math.min(challengeSelectIdx - halfVis, challengeLevels.length - maxVisible));
+  const totalVisW = maxVisible * cardW;
+  const startX = W / 2 - totalVisW / 2 + cardW / 2;
+
+  if (scrollOffset > 0) {
+    ctx.font = 'bold 24px monospace';
+    ctx.fillStyle = '#556';
+    ctx.fillText('<', W / 2 - totalVisW / 2 - 25, H / 2 - 20);
+  }
+  if (scrollOffset + maxVisible < challengeLevels.length) {
+    ctx.font = 'bold 24px monospace';
+    ctx.fillStyle = '#556';
+    ctx.fillText('>', W / 2 + totalVisW / 2 + 25, H / 2 - 20);
+  }
+
+  for (let vi = 0; vi < maxVisible; vi++) {
+    const i = vi + scrollOffset;
+    if (i >= challengeLevels.length) break;
+    const cx = startX + vi * cardW;
+    const cy = H / 2 - 20;
+    const selected = i === challengeSelectIdx;
+    const completed = save.challengeCompleted.includes(i);
+    const accessible = i === 0 || save.challengeCompleted.includes(i - 1);
+    const stars = save.challengeStars[i] || 0;
+    const bob = selected ? Math.sin(selectTime * 0.08) * 4 : 0;
+
+    // Card bg
+    ctx.fillStyle = selected ? 'rgba(255,50,50,0.15)' : 'rgba(255,255,255,0.03)';
+    ctx.fillRect(cx - 60, cy - 60 + bob, 120, 130);
+    ctx.strokeStyle = selected ? COL.RED : (accessible ? '#433' : '#222');
+    ctx.lineWidth = selected ? 2 : 1;
+    ctx.strokeRect(cx - 60, cy - 60 + bob, 120, 130);
+
+    // Skull icon for challenges
+    ctx.font = accessible ? '28px monospace' : '28px monospace';
+    ctx.fillStyle = accessible ? (selected ? '#fff' : '#887') : '#333';
+    ctx.fillText(accessible ? '☠' : '?', cx, cy - 25 + bob);
+
+    // Level name
+    ctx.font = '11px monospace';
+    ctx.fillStyle = accessible ? (selected ? COL.RED : '#776') : '#333';
+    ctx.fillText(challengeLevels[i].name, cx, cy + 10 + bob);
+
+    // Stars
+    if (completed) {
+      drawStars(cx, cy + 40 + bob, stars, 8);
+    } else if (accessible) {
+      ctx.font = '11px monospace';
+      ctx.fillStyle = '#554';
+      ctx.fillText('Non termine', cx, cy + 40 + bob);
+    }
+  }
+
+  // Navigation
+  ctx.font = '16px monospace';
+  ctx.fillStyle = '#556';
+  ctx.fillText('<  >  pour choisir   |   ECHAP  retour', W / 2, H / 2 + 120);
+
+  const blink = Math.sin(selectTime * 0.08) > 0;
+  if (blink) {
+    ctx.font = 'bold 20px monospace';
+    ctx.fillStyle = COL.RED;
+    ctx.fillText('ENTREE ou ESPACE pour jouer', W / 2, H / 2 + 155);
+  }
+
+  ctx.restore();
+}
+
 // ---- SHOP SCREEN ----
 function drawShop() {
   ctx.fillStyle = COL.BG;
@@ -1069,13 +1273,23 @@ function drawOptions() {
   // Stats display
   ctx.font = '16px monospace';
   ctx.fillStyle = '#556';
-  ctx.fillText(`Niveaux termines : ${save.completedLevels.length} / ${levels.length}`, W / 2, H / 2 + 60);
-  ctx.fillText(`Morts totales : ${save.totalDeaths}`, W / 2, H / 2 + 90);
+  ctx.fillText(`Niveaux termines : ${save.completedLevels.length} / ${levels.length}`, W / 2, H / 2 + 50);
+  ctx.fillText(`Morts totales : ${save.totalDeaths}`, W / 2, H / 2 + 75);
 
   // Total stars
   let totalStars = 0;
   for (const k in save.levelStars) totalStars += save.levelStars[k];
-  ctx.fillText(`Etoiles : ${totalStars} / ${levels.length * 3}`, W / 2, H / 2 + 120);
+  ctx.fillText(`Etoiles : ${totalStars} / ${levels.length * 5}`, W / 2, H / 2 + 100);
+
+  // Challenge stats
+  const challCompleted = (save.challengeCompleted || []).length;
+  if (challCompleted > 0 || challengeLevels.length > 0) {
+    let challStars = 0;
+    for (const k in (save.challengeStars || {})) challStars += save.challengeStars[k];
+    ctx.fillStyle = COL.RED;
+    ctx.fillText(`Defis termines : ${challCompleted} / ${challengeLevels.length}`, W / 2, H / 2 + 130);
+    ctx.fillText(`Etoiles defis : ${challStars} / ${challengeLevels.length * 5}`, W / 2, H / 2 + 155);
+  }
 
   // Navigation
   ctx.font = '14px monospace';
@@ -1100,12 +1314,12 @@ function drawWin() {
   ctx.shadowColor = COL.PORTAL;
   ctx.shadowBlur = 30;
   ctx.fillStyle = COL.PORTAL;
-  ctx.fillText('ANIMAL SAUVE !', W / 2, H / 2 - 60);
+  ctx.fillText(playingChallenge ? 'DEFIS CONQUIS !' : 'ANIMAL SAUVE !', W / 2, H / 2 - 60);
   ctx.shadowBlur = 0;
 
   ctx.font = '24px monospace';
   ctx.fillStyle = COL.CYAN;
-  ctx.fillText('Tu as conquis toutes les dimensions', W / 2, H / 2);
+  ctx.fillText(playingChallenge ? 'Tu as survécu à tous les défis' : 'Tu as conquis toutes les dimensions', W / 2, H / 2);
 
   ctx.font = '18px monospace';
   ctx.fillStyle = '#888';
@@ -1113,10 +1327,12 @@ function drawWin() {
 
   // Total stars
   const save = SaveManager.getOrCreate();
+  const starsKey = playingChallenge ? 'challengeStars' : 'levelStars';
+  const levelList = playingChallenge ? challengeLevels : levels;
   let totalStars = 0;
-  for (const k in save.levelStars) totalStars += save.levelStars[k];
+  for (const k in (save[starsKey] || {})) totalStars += save[starsKey][k];
   ctx.fillStyle = COL.YELLOW;
-  ctx.fillText(`Etoiles totales : ${totalStars} / ${levels.length * 3}`, W / 2, H / 2 + 80);
+  ctx.fillText(`Etoiles totales : ${totalStars} / ${levelList.length * 5}`, W / 2, H / 2 + 80);
 
   const blink = Math.sin(gameTime * 0.08) > 0;
   if (blink) {

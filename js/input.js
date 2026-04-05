@@ -6,7 +6,7 @@ const input = { keys: {}, just: new Set() };
 window.addEventListener('keydown', e => {
   if (!input.keys[e.code]) input.just.add(e.code);
   input.keys[e.code] = true;
-  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Escape'].includes(e.code)) e.preventDefault();
 });
 window.addEventListener('keyup', e => { input.keys[e.code] = false; });
 window.addEventListener('contextmenu', e => e.preventDefault());

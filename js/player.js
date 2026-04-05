@@ -57,6 +57,11 @@ function isSpike(col, row) {
   return t === 4 || t === 5 || t === 10 || t === 11;
 }
 
+function isHole(col, row) {
+  const t = getTile(col, row);
+  return t === 12 || t === 13; // 'c' = floor hole, 'd' = ceiling hole
+}
+
 function isVoid(col, row) {
   return getTile(col, row) === 9;
 }
@@ -81,7 +86,7 @@ function hitsHazard(x, y, w, h) {
   const bot = Math.floor((y + h - 1) / C.TILE);
   for (let r = top; r <= bot; r++) {
     for (let c = left; c <= right; c++) {
-      if (isSpike(c, r) || isVoid(c, r)) return true;
+      if (isSpike(c, r) || isVoid(c, r) || isHole(c, r)) return true;
     }
   }
   return false;
@@ -92,9 +97,36 @@ function updateLasers() {
   if (!level.lasers) return;
   for (const l of level.lasers) {
     if (!l._t) l._t = Math.random() * Math.PI * 2;
-    l._t += 0.02 * l.speed;
+    const baseSpeed = l.speed || 1.5;
+    // Pulse: speed oscillates over time
+    const spd = l.pulse ? baseSpeed * (0.6 + 0.8 * Math.abs(Math.sin(l._t * 0.3))) : baseSpeed;
+    l._t += 0.02 * spd;
+    // Wobble: beam sways side to side (perpendicular to movement)
+    const w = l.wobble || 0;
+    l._wobbleOffset = w ? Math.sin(l._t * 1.5) * w * 32 : 0;
+    // Current width (pulsing width)
+    const baseW = l.width || 3;
+    l._currentWidth = l.pulse ? baseW * (0.7 + 0.3 * Math.abs(Math.sin(l._t * 0.5))) : baseW;
+
+    const a = l.angle || 0;
+    // Wobble adds a small angle variation
+    l._currentAngle = a + (w ? Math.sin(l._t * 0.8) * w * 0.3 : 0);
+    const progress = Math.sin(l._t); // -1 to 1
+
     if (l.vertical) {
-      l.currentY = l.y1 + (l.y2 - l.y1) * (0.5 + 0.5 * Math.sin(l._t));
+      // Movement: emitter oscillates along a path tilted by angle
+      // Default direction = (0, 1), rotated by angle = (sin(a), cos(a))
+      const midY = (l.y1 + l.y2) / 2;
+      const halfLen = (l.y2 - l.y1) / 2;
+      l.currentX = l.x + Math.sin(a) * halfLen * progress + l._wobbleOffset;
+      l.currentY = midY + Math.cos(a) * halfLen * progress;
+    } else if (l.horizontal) {
+      // Movement: emitter oscillates along a path tilted by angle
+      // Default direction = (1, 0), rotated by angle = (cos(a), sin(a))
+      const midX = (l.x1 + l.x2) / 2;
+      const halfLen = (l.x2 - l.x1) / 2;
+      l.currentX = midX + Math.cos(a) * halfLen * progress;
+      l.currentY = l.y + Math.sin(a) * halfLen * progress + l._wobbleOffset;
     }
   }
 }
@@ -102,14 +134,34 @@ function updateLasers() {
 function laserHitsPlayer() {
   if (!level.lasers) return false;
   const px = player.x, py = player.y, pw = player.w, ph = player.h;
+  const pcx = px + pw / 2, pcy = py + ph / 2;
   for (const l of level.lasers) {
+    const hw = (l._currentWidth || l.width || 3) / 2 + 1;
+    const bAngle = l._currentAngle || 0;
+    const beamLen = 200;
+    const sx = l.currentX || l.x || 0;
+    const sy = l.currentY || l.y || 0;
+
+    // Beam direction: for vertical lasers, beam goes "up" rotated by angle
+    // For horizontal lasers, beam goes "right" rotated by angle
+    let ex, ey;
     if (l.vertical) {
-      const lx = l.x;
-      const ly = l.currentY || l.y1;
-      if (px + pw > lx - 3 && px < lx + 3) {
-        if (py + ph > ly - 200 && py < ly + 4) return true;
-      }
+      ex = sx + Math.sin(bAngle) * beamLen;
+      ey = sy - Math.cos(bAngle) * beamLen;
+    } else {
+      ex = sx + Math.cos(bAngle) * beamLen;
+      ey = sy + Math.sin(bAngle) * beamLen;
     }
+
+    // Point-to-segment distance for player center
+    const dx = ex - sx, dy = ey - sy;
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq > 0 ? ((pcx - sx) * dx + (pcy - sy) * dy) / lenSq : 0;
+    t = Math.max(0, Math.min(1, t));
+    const closestX = sx + t * dx, closestY = sy + t * dy;
+    const distX = pcx - closestX, distY = pcy - closestY;
+    const dist = Math.sqrt(distX * distX + distY * distY);
+    if (dist < hw + pw / 2) return true;
   }
   return false;
 }
@@ -331,21 +383,38 @@ function killPlayer() {
 }
 
 function completeLevel() {
-  const stars = Shop.getStars(levelIdx, player.gravityFlips);
+  const timeSec = Math.floor(levelTime / 60);
+  const stars = Shop.getStars(level, timeSec, player.gravityFlips);
   const coinsEarned = player.orbs;
 
   // Update save
   const save = SaveManager.getOrCreate();
   save.coins += coinsEarned;
   save.totalDeaths += deaths;
-  if (!save.completedLevels.includes(levelIdx)) {
-    save.completedLevels.push(levelIdx);
+
+  const saveKey = playingChallenge ? 'challenge' : 'level';
+  const completedKey = playingChallenge ? 'challengeCompleted' : 'completedLevels';
+  const starsKey = playingChallenge ? 'challengeStars' : 'levelStars';
+  const flipsKey = playingChallenge ? 'challengeBestFlips' : 'levelBestFlips';
+  const timeKey = playingChallenge ? 'challengeBestTime' : 'levelBestTime';
+
+  if (!save[completedKey]) save[completedKey] = [];
+  if (!save[starsKey]) save[starsKey] = {};
+  if (!save[flipsKey]) save[flipsKey] = {};
+  if (!save[timeKey]) save[timeKey] = {};
+
+  if (!save[completedKey].includes(levelIdx)) {
+    save[completedKey].push(levelIdx);
   }
-  const prevStars = save.levelStars[levelIdx] || 0;
-  if (stars > prevStars) save.levelStars[levelIdx] = stars;
-  const prevBest = save.levelBestFlips[levelIdx];
+  const prevStars = save[starsKey][levelIdx] || 0;
+  if (stars > prevStars) save[starsKey][levelIdx] = stars;
+  const prevBest = save[flipsKey][levelIdx];
   if (prevBest === undefined || player.gravityFlips < prevBest) {
-    save.levelBestFlips[levelIdx] = player.gravityFlips;
+    save[flipsKey][levelIdx] = player.gravityFlips;
+  }
+  const prevTime = save[timeKey][levelIdx];
+  if (prevTime === undefined || timeSec < prevTime) {
+    save[timeKey][levelIdx] = timeSec;
   }
   SaveManager.save(save);
 
@@ -353,6 +422,7 @@ function completeLevel() {
   lastLevelStars = stars;
   lastLevelCoins = coinsEarned;
   lastLevelFlips = player.gravityFlips;
+  lastLevelTime = timeSec;
 
   state = 'LEVEL_COMPLETE';
   levelCompleteTimer = 120;
