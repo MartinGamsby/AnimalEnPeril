@@ -46,6 +46,7 @@ function applyTouchControls(val) {
 const _initSave = SaveManager.getOrCreate();
 applyBackground(_initSave.background);
 applyTouchControls(_initSave.showTouchControls);
+if (_initSave.musicVolume !== undefined) Audio.musicVolume = _initSave.musicVolume;
 
 // ---- MAIN LOOP ----
 let lastTime = 0;
@@ -61,6 +62,7 @@ function gameLoop(ts) {
     drawIntro();
     if (((justPressed('Enter') || justPressed('Space')) || (input.taps.length > 0)) && introTime > 30) {
       Audio.init();
+      Audio.playMusic();
       state = 'TITLE';
       titleTime = 0;
       titleMenuIdx = 0;
@@ -371,13 +373,19 @@ function gameLoop(ts) {
         input.just.add('ArrowRight');
         break;
       }
+      // Tap on music volume option area (drawn at H/2 + 40)
+      if (tap.y > H / 2 + 25 && tap.y < H / 2 + 55 && tap.x > W / 4 && tap.x < W * 3 / 4) {
+        optionsIdx = 2;
+        input.just.add('ArrowRight');
+        break;
+      }
     }
 
     if (justPressed('ArrowUp') || justPressed('KeyW')) {
-      optionsIdx = (optionsIdx - 1 + 2) % 2;
+      optionsIdx = (optionsIdx - 1 + 3) % 3;
     }
     if (justPressed('ArrowDown') || justPressed('KeyS')) {
-      optionsIdx = (optionsIdx + 1) % 2;
+      optionsIdx = (optionsIdx + 1) % 3;
     }
 
     if (justPressed('Escape')) {
@@ -405,6 +413,21 @@ function gameLoop(ts) {
         save.showTouchControls = touchOptions[next];
         SaveManager.save(save);
         applyTouchControls(save.showTouchControls);
+      }
+    }
+    if (optionsIdx === 2) {
+      const vol = save.musicVolume !== undefined ? save.musicVolume : 0.3;
+      if (justPressed('ArrowRight') || justPressed('KeyD')) {
+        save.musicVolume = Math.min(1, Math.round((vol + 0.1) * 10) / 10);
+        SaveManager.save(save);
+        Audio.setMusicVolume(save.musicVolume);
+        if (save.musicVolume > 0) Audio.playMusic();
+      }
+      if (justPressed('ArrowLeft') || justPressed('KeyA')) {
+        save.musicVolume = Math.max(0, Math.round((vol - 0.1) * 10) / 10);
+        SaveManager.save(save);
+        Audio.setMusicVolume(save.musicVolume);
+        if (save.musicVolume === 0) Audio.pauseMusic();
       }
     }
   } else if (state === 'PLAYING') {

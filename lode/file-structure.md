@@ -6,7 +6,7 @@ css/style.css                 # Styles + forest background
 js/
   config.js                   # Constants (C, COL), canvas setup, resize
   utils.js                    # rng() helper
-  audio.js                    # Sound effects via Web Audio API
+  audio.js                    # Sound effects (Web Audio API) + background music (HTML5 Audio)
   input.js                    # Keyboard + touch input handling
   particles.js                # Particle system (emit, update, draw)
   camera.js                   # Camera follow + shake
@@ -43,6 +43,9 @@ js/
     touch.js                  # drawTouchControls, drawBackButton
     screens-game.js           # drawIntro, drawTitle, drawWin
     screens-menus.js          # drawSelect, drawLevelSelect, drawChallengeSelect, drawShop, drawOptions
+  assets/
+    bg-forest.png                # Forest background image
+    music.mp3                    # Background music ("Crown of Ash and Sunlight" by Suno)
 ```
 
 ## Game states

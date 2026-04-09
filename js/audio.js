@@ -4,9 +4,50 @@
 
 const Audio = {
   ctx: null,
+  musicTracks: ['assets/music.mp3', 'assets/music-2.mp3', 'assets/music-3.mp3'],
+  musicEls: [],
+  musicIdx: 0,
+  musicVolume: 0.3,
+  _musicPlaying: false,
   init() {
     if (this.ctx) return;
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this._initMusic();
+  },
+  _initMusic() {
+    if (this.musicEls.length) return;
+    for (const src of this.musicTracks) {
+      const el = new window.Audio(src);
+      el.volume = this.musicVolume;
+      el.addEventListener('ended', () => this._nextTrack());
+      this.musicEls.push(el);
+    }
+    this.musicIdx = Math.floor(Math.random() * this.musicTracks.length);
+    const save = SaveManager.getOrCreate();
+    if (save.musicVolume !== undefined) this.setMusicVolume(save.musicVolume);
+  },
+  _nextTrack() {
+    this.musicIdx = (this.musicIdx + 1) % this.musicEls.length;
+    if (this._musicPlaying) {
+      this.musicEls[this.musicIdx].currentTime = 0;
+      this.musicEls[this.musicIdx].play().catch(() => {});
+    }
+  },
+  setMusicVolume(v) {
+    this.musicVolume = v;
+    for (const el of this.musicEls) el.volume = v;
+  },
+  playMusic() {
+    if (!this.musicEls.length || this.musicVolume === 0) return;
+    this._musicPlaying = true;
+    const cur = this.musicEls[this.musicIdx];
+    if (cur.paused) cur.play().catch(() => {});
+  },
+  pauseMusic() {
+    this._musicPlaying = false;
+    for (const el of this.musicEls) {
+      if (!el.paused) el.pause();
+    }
   },
   _osc(type, freq, dur, vol = 0.15) {
     if (!this.ctx) return;

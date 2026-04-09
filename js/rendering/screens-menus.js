@@ -463,33 +463,39 @@ function drawOptions() {
   ctx.fillStyle = selTouch ? '#fff' : '#556';
   ctx.fillText(`Boutons tactiles : < ${touchNames[save.showTouchControls || 'auto']} >`, W / 2, H / 2 + 5);
 
-  if (selBg || selTouch) {
+  const musicPct = Math.round((save.musicVolume !== undefined ? save.musicVolume : 0.3) * 100);
+  const selMusic = optionsIdx === 2;
+  ctx.font = selMusic ? 'bold 20px monospace' : '18px monospace';
+  ctx.fillStyle = selMusic ? '#fff' : '#556';
+  ctx.fillText(`Musique : < ${musicPct}% >`, W / 2, H / 2 + 40);
+
+  if (selBg || selTouch || selMusic) {
     ctx.font = '14px monospace';
     ctx.fillStyle = '#445';
-    ctx.fillText(touchUI.show ? 'Touche pour changer' : '<  >  pour changer', W / 2, H / 2 + 30);
+    ctx.fillText(touchUI.show ? 'Touche pour changer' : '<  >  pour changer', W / 2, H / 2 + 65);
   }
 
   ctx.font = '16px monospace';
   ctx.fillStyle = '#556';
-  ctx.fillText(`Niveaux terminés : ${save.completedLevels.length} / ${levels.length}`, W / 2, H / 2 + 50);
-  ctx.fillText(`Morts totales : ${save.totalDeaths}`, W / 2, H / 2 + 75);
+  ctx.fillText(`Niveaux terminés : ${save.completedLevels.length} / ${levels.length}`, W / 2, H / 2 + 85);
+  ctx.fillText(`Morts totales : ${save.totalDeaths}`, W / 2, H / 2 + 110);
 
   let totalStars = 0;
   for (const k in save.levelStars) totalStars += save.levelStars[k];
-  ctx.fillText(`Étoiles : ${totalStars} / ${levels.length * 5}`, W / 2, H / 2 + 100);
+  ctx.fillText(`Étoiles : ${totalStars} / ${levels.length * 5}`, W / 2, H / 2 + 135);
 
   const challCompleted = (save.challengeCompleted || []).length;
   if (challCompleted > 0 || challengeLevels.length > 0) {
     let challStars = 0;
     for (const k in (save.challengeStars || {})) challStars += save.challengeStars[k];
     ctx.fillStyle = COL.RED;
-    ctx.fillText(`Défis terminés : ${challCompleted} / ${challengeLevels.length}`, W / 2, H / 2 + 130);
-    ctx.fillText(`Étoiles défis : ${challStars} / ${challengeLevels.length * 5}`, W / 2, H / 2 + 155);
+    ctx.fillText(`Défis terminés : ${challCompleted} / ${challengeLevels.length}`, W / 2, H / 2 + 165);
+    ctx.fillText(`Étoiles défis : ${challStars} / ${challengeLevels.length * 5}`, W / 2, H / 2 + 190);
   }
 
   ctx.font = '14px monospace';
   ctx.fillStyle = '#445';
-  ctx.fillText(touchUI.show ? '' : 'ÉCHAP  retour', W / 2, H / 2 + 180);
+  ctx.fillText(touchUI.show ? '' : 'ÉCHAP  retour', W / 2, H / 2 + 215);
 
   ctx.restore();
   drawBackButton();

@@ -16,6 +16,7 @@ const SaveManager = {
       levelBestTime: {},
       background: 'forest',
       showTouchControls: 'auto',
+      musicVolume: 0.3,
       totalDeaths: 0,
       challengeCompleted: [],
       challengeStars: {},
