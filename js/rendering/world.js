@@ -157,17 +157,22 @@ function drawLasers() {
     const angle = l._currentAngle || 0;
     const beamLen = 200;
 
-    let sx, sy, ex, ey;
+    let sx, sy, e1x, e1y, e2x, e2y;
+    const halfBeam = beamLen / 2;
     if (l.vertical) {
       sx = (l.currentX != null ? l.currentX : l.x) + ox;
       sy = (l.currentY != null ? l.currentY : l.y1) + oy;
-      ex = sx + Math.sin(angle) * beamLen;
-      ey = sy - Math.cos(angle) * beamLen;
+      e1x = sx + Math.sin(angle) * halfBeam;
+      e1y = sy - Math.cos(angle) * halfBeam;
+      e2x = sx - Math.sin(angle) * halfBeam;
+      e2y = sy + Math.cos(angle) * halfBeam;
     } else if (l.horizontal) {
       sx = (l.currentX != null ? l.currentX : l.x1) + ox;
       sy = (l.currentY != null ? l.currentY : l.y) + oy;
-      ex = sx + Math.cos(angle) * beamLen;
-      ey = sy + Math.sin(angle) * beamLen;
+      e1x = sx + Math.cos(angle) * halfBeam;
+      e1y = sy + Math.sin(angle) * halfBeam;
+      e2x = sx - Math.cos(angle) * halfBeam;
+      e2y = sy - Math.sin(angle) * halfBeam;
     } else {
       continue;
     }
@@ -177,16 +182,16 @@ function drawLasers() {
     ctx.globalCompositeOperation = 'lighter';
     ctx.strokeStyle = 'rgba(255,50,50,0.12)';
     ctx.lineWidth = w * 4;
-    ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(sx, sy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(e1x, e1y); ctx.lineTo(e2x, e2y); ctx.stroke();
     ctx.strokeStyle = 'rgba(255,80,80,0.25)';
     ctx.lineWidth = w * 1.5;
-    ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(sx, sy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(e1x, e1y); ctx.lineTo(e2x, e2y); ctx.stroke();
     ctx.restore();
 
     // Core beam
     ctx.strokeStyle = COL.RED;
     ctx.lineWidth = Math.max(1.5, w * 0.7);
-    ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(sx, sy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(e1x, e1y); ctx.lineTo(e2x, e2y); ctx.stroke();
 
     // Emitter dot
     const dotR = 3 + w * 0.5 + Math.sin(gameTime * 0.2) * 1.5;

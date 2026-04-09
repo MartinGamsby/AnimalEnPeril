@@ -139,26 +139,29 @@ function laserHitsPlayer() {
     const hw = (l._currentWidth || l.width || 3) / 2 + 1;
     const bAngle = l._currentAngle || 0;
     const beamLen = 200;
+    const halfBeam = beamLen / 2;
     const sx = l.currentX || l.x || 0;
     const sy = l.currentY || l.y || 0;
 
-    // Beam direction: for vertical lasers, beam goes "up" rotated by angle
-    // For horizontal lasers, beam goes "right" rotated by angle
-    let ex, ey;
+    let e1x, e1y, e2x, e2y;
     if (l.vertical) {
-      ex = sx + Math.sin(bAngle) * beamLen;
-      ey = sy - Math.cos(bAngle) * beamLen;
+      e1x = sx + Math.sin(bAngle) * halfBeam;
+      e1y = sy - Math.cos(bAngle) * halfBeam;
+      e2x = sx - Math.sin(bAngle) * halfBeam;
+      e2y = sy + Math.cos(bAngle) * halfBeam;
     } else {
-      ex = sx + Math.cos(bAngle) * beamLen;
-      ey = sy + Math.sin(bAngle) * beamLen;
+      e1x = sx + Math.cos(bAngle) * halfBeam;
+      e1y = sy + Math.sin(bAngle) * halfBeam;
+      e2x = sx - Math.cos(bAngle) * halfBeam;
+      e2y = sy - Math.sin(bAngle) * halfBeam;
     }
 
     // Point-to-segment distance for player center
-    const dx = ex - sx, dy = ey - sy;
+    const dx = e1x - e2x, dy = e1y - e2y;
     const lenSq = dx * dx + dy * dy;
-    let t = lenSq > 0 ? ((pcx - sx) * dx + (pcy - sy) * dy) / lenSq : 0;
+    let t = lenSq > 0 ? ((pcx - e2x) * dx + (pcy - e2y) * dy) / lenSq : 0;
     t = Math.max(0, Math.min(1, t));
-    const closestX = sx + t * dx, closestY = sy + t * dy;
+    const closestX = e2x + t * dx, closestY = e2y + t * dy;
     const distX = pcx - closestX, distY = pcy - closestY;
     const dist = Math.sqrt(distX * distX + distY * distY);
     if (dist < hw + pw / 2) return true;
