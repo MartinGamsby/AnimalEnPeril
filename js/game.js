@@ -527,4 +527,5 @@ function gameLoop(ts) {
   input.taps.length = 0;
 }
 
+loadAllLevels();
 requestAnimationFrame(gameLoop);

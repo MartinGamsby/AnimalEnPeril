@@ -1,0 +1,14 @@
+- **Tile** - 32x32 pixel grid cell; encoded as single hex char (0-e) in level data
+- **Orb** - collectible (tile char `6`); player needs `reqOrbs` to activate portal
+- **Portal** - level exit (tile char `8`); activates when enough orbs collected
+- **Start** - player spawn point (tile char `7`)
+- **Dimension A/B** - two tile layers; tiles 2 (blue) solid in normal, tiles 3 (purple) solid when shifted
+- **Shift** - temporary dimension switch (L-Shift key), has cooldown
+- **Dash** - short speed burst (E key), has cooldown
+- **Gravity flip** - inverting gravity direction (Space in air)
+- **Stars** - 1-5 rating per level based on time + gravity flips; thresholds in level meta
+- **Laser** - moving hazard with vertical/horizontal movement, optional wobble/pulse/angle
+- **Challenge levels** - harder variant levels (Défis) with separate progression
+- **Void tiles** (9) - instant-kill dark tiles
+- **Spike tiles** (4=floor, 5=ceiling) - kill on contact
+- **Hole tiles** (12=floor, 13=ceiling) - fall-through kill zones

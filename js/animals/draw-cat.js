@@ -1,0 +1,35 @@
+function drawCat(s, col, acc) {
+  ctx.fillStyle = col;
+  ctx.fillRect(-8*s, -10*s, 16*s, 20*s);
+  ctx.beginPath();
+  ctx.moveTo(-8*s, -10*s); ctx.lineTo(-6*s, -18*s); ctx.lineTo(-1*s, -10*s);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(1*s, -10*s); ctx.lineTo(6*s, -18*s); ctx.lineTo(8*s, -10*s);
+  ctx.fill();
+  ctx.fillStyle = acc;
+  ctx.beginPath();
+  ctx.moveTo(-6*s, -10*s); ctx.lineTo(-5*s, -15*s); ctx.lineTo(-2*s, -10*s);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(2*s, -10*s); ctx.lineTo(5*s, -15*s); ctx.lineTo(6*s, -10*s);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(-6*s, -6*s, 4*s, 4*s);
+  ctx.fillRect(2*s, -6*s, 4*s, 4*s);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(-4*s, -5*s, 2*s, 3*s);
+  ctx.fillRect(4*s, -5*s, 2*s, 3*s);
+  ctx.fillStyle = '#ff6688';
+  ctx.fillRect(-1*s, -1*s, 2*s, 2*s);
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-8*s, -1*s); ctx.lineTo(-14*s, -3*s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-8*s, 1*s); ctx.lineTo(-14*s, 2*s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8*s, -1*s); ctx.lineTo(14*s, -3*s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8*s, 1*s); ctx.lineTo(14*s, 2*s); ctx.stroke();
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 3*s;
+  ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(8*s, 6*s); ctx.quadraticCurveTo(16*s, 2*s, 14*s, -6*s); ctx.stroke();
+}

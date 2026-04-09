@@ -1,0 +1,191 @@
+const _levelMeta = [
+  // Level 1
+  { name: "AWAKENING", cols: 50, rows: 18, reqOrbs: 3,
+    dataKey: "level-01-awakening",
+    stars: [{ time: 20, flips: 2 }, { time: 30, flips: 4 }, { time: 45, flips: 7 }, { time: 70, flips: 12 }],
+  },
+  // Level 2
+  { name: "DUALITY", cols: 55, rows: 20, reqOrbs: 4,
+    dataKey: "level-02-duality",
+    stars: [{ time: 25, flips: 3 }, { time: 40, flips: 6 }, { time: 60, flips: 10 }, { time: 90, flips: 16 }],
+  },
+  // Level 3
+  { name: "VELOCITY", cols: 60, rows: 22, reqOrbs: 5,
+    dataKey: "level-03-velocity",
+    stars: [{ time: 30, flips: 5 }, { time: 50, flips: 9 }, { time: 75, flips: 15 }, { time: 110, flips: 22 }],
+    lasers: [
+      { x: 20 * 32, y1: 2 * 32, y2: 19 * 32, speed: 1.5, vertical: true, width: 3 },
+      { x: 35 * 32, y1: 2 * 32, y2: 19 * 32, speed: 2.2, vertical: true, width: 5 },
+      { x: 48 * 32, y1: 2 * 32, y2: 19 * 32, speed: 1.2, vertical: true, wobble: 0.3 },
+    ],
+  },
+  // Level 4
+  { name: "CONVERGENCE", cols: 65, rows: 24, reqOrbs: 6,
+    dataKey: "level-04-convergence",
+    stars: [{ time: 35, flips: 6 }, { time: 55, flips: 11 }, { time: 80, flips: 18 }, { time: 120, flips: 26 }],
+    lasers: [
+      { x: 25 * 32, y1: 1 * 32, y2: 22 * 32, speed: 1.8, vertical: true, width: 4 },
+      { x: 40 * 32, y1: 1 * 32, y2: 22 * 32, speed: 1.4, vertical: true, wobble: 0.4 },
+      { x: 52 * 32, y1: 1 * 32, y2: 22 * 32, speed: 2.5, vertical: true, width: 6 },
+    ],
+  },
+  // Level 5
+  { name: "THE VOID", cols: 70, rows: 26, reqOrbs: 7,
+    dataKey: "level-05-the-void",
+    stars: [{ time: 40, flips: 7 }, { time: 60, flips: 13 }, { time: 90, flips: 20 }, { time: 130, flips: 30 }],
+    lasers: [
+      { x: 18 * 32, y1: 1 * 32, y2: 24 * 32, speed: 2, vertical: true, width: 5 },
+      { x: 30 * 32, y1: 1 * 32, y2: 24 * 32, speed: 1.5, vertical: true, wobble: 0.5 },
+      { x: 45 * 32, y1: 1 * 32, y2: 24 * 32, speed: 2.8, vertical: true, width: 4 },
+      { x: 58 * 32, y1: 1 * 32, y2: 24 * 32, speed: 1.8, vertical: true, pulse: true },
+    ],
+  },
+  // Level 6
+  { name: "LABYRINTHE", cols: 55, rows: 22, reqOrbs: 5,
+    dataKey: "level-06-labyrinthe",
+    stars: [{ time: 30, flips: 4 }, { time: 45, flips: 8 }, { time: 65, flips: 12 }, { time: 100, flips: 20 }],
+    lasers: [
+      { x: 27 * 32, y1: 1 * 32, y2: 20 * 32, speed: 1.6, vertical: true, wobble: 0.3, angle: 0.15 },
+      { y: 11 * 32, x1: 10 * 32, x2: 45 * 32, speed: 1.8, horizontal: true, width: 3, angle: -0.1 },
+    ],
+  },
+  // Level 7
+  { name: "ASCENSION", cols: 40, rows: 30, reqOrbs: 6,
+    dataKey: "level-07-ascension",
+    stars: [{ time: 35, flips: 5 }, { time: 55, flips: 10 }, { time: 80, flips: 16 }, { time: 120, flips: 24 }],
+    lasers: [
+      { x: 20 * 32, y1: 1 * 32, y2: 28 * 32, speed: 1.3, vertical: true, pulse: true, angle: 0.2 },
+      { x: 32 * 32, y1: 1 * 32, y2: 28 * 32, speed: 2.0, vertical: true, width: 5, angle: -0.15 },
+    ],
+  },
+  // Level 8
+  { name: "FRACTURE", cols: 65, rows: 24, reqOrbs: 7,
+    dataKey: "level-08-fracture",
+    stars: [{ time: 40, flips: 7 }, { time: 60, flips: 12 }, { time: 85, flips: 18 }, { time: 130, flips: 28 }],
+    lasers: [
+      { x: 15 * 32, y1: 1 * 32, y2: 22 * 32, speed: 2.0, vertical: true, wobble: 0.4, angle: 0.2 },
+      { x: 30 * 32, y1: 1 * 32, y2: 22 * 32, speed: 1.5, vertical: true, width: 6, angle: -0.25 },
+      { x: 45 * 32, y1: 1 * 32, y2: 22 * 32, speed: 2.3, vertical: true, pulse: true, angle: 0.15 },
+      { y: 12 * 32, x1: 20 * 32, x2: 55 * 32, speed: 1.8, horizontal: true, width: 4, angle: 0.1 },
+    ],
+  },
+  // Level 9
+  { name: "CHAOS", cols: 70, rows: 26, reqOrbs: 8,
+    dataKey: "level-09-chaos",
+    stars: [{ time: 45, flips: 8 }, { time: 70, flips: 14 }, { time: 100, flips: 22 }, { time: 150, flips: 35 }],
+    lasers: [
+      { x: 14 * 32, y1: 1 * 32, y2: 24 * 32, speed: 2.2, vertical: true, width: 5, angle: 0.25 },
+      { x: 28 * 32, y1: 1 * 32, y2: 24 * 32, speed: 1.6, vertical: true, wobble: 0.5, angle: -0.2 },
+      { x: 42 * 32, y1: 1 * 32, y2: 24 * 32, speed: 2.8, vertical: true, pulse: true, angle: 0.3 },
+      { y: 15 * 32, x1: 5 * 32, x2: 50 * 32, speed: 2.0, horizontal: true, width: 4, angle: -0.15 },
+      { x: 62 * 32, y1: 1 * 32, y2: 24 * 32, speed: 2.0, vertical: true, width: 7, angle: 0.18 },
+    ],
+  },
+  // Level 10
+  { name: "NEXUS", cols: 75, rows: 28, reqOrbs: 9,
+    dataKey: "level-10-nexus",
+    stars: [{ time: 50, flips: 10 }, { time: 75, flips: 16 }, { time: 110, flips: 25 }, { time: 160, flips: 40 }],
+    lasers: [
+      { x: 12 * 32, y1: 1 * 32, y2: 26 * 32, speed: 2.5, vertical: true, width: 5 },
+      { x: 24 * 32, y1: 1 * 32, y2: 26 * 32, speed: 1.8, vertical: true, wobble: 0.6 },
+      { x: 36 * 32, y1: 1 * 32, y2: 26 * 32, speed: 2.2, vertical: true, pulse: true },
+      { x: 48 * 32, y1: 1 * 32, y2: 26 * 32, speed: 3.0, vertical: true, width: 7 },
+      { y: 14 * 32, x1: 8 * 32, x2: 60 * 32, speed: 2.5, horizontal: true, wobble: 0.4 },
+      { x: 68 * 32, y1: 1 * 32, y2: 26 * 32, speed: 2.0, vertical: true, width: 4, pulse: true },
+    ],
+  },
+  // Level 11
+  { name: "TEMPÊTE", cols: 60, rows: 22, reqOrbs: 6,
+    dataKey: "level-11-tempete",
+    stars: [{ time: 35, flips: 6 }, { time: 55, flips: 11 }, { time: 80, flips: 18 }, { time: 120, flips: 28 }],
+    lasers: [
+      { x: 18 * 32, y1: 1 * 32, y2: 20 * 32, speed: 2.5, vertical: true, wobble: 0.6, angle: 0.2 },
+      { x: 32 * 32, y1: 1 * 32, y2: 20 * 32, speed: 3.0, vertical: true, pulse: true, width: 5, angle: -0.3 },
+      { y: 10 * 32, x1: 5 * 32, x2: 55 * 32, speed: 2.2, horizontal: true, width: 4, angle: 0.15 },
+      { x: 48 * 32, y1: 1 * 32, y2: 20 * 32, speed: 1.8, vertical: true, width: 6, angle: 0.25 },
+    ],
+  },
+  // Level 12
+  { name: "ABÎME", cols: 70, rows: 26, reqOrbs: 8,
+    dataKey: "level-12-abime",
+    stars: [{ time: 50, flips: 9 }, { time: 75, flips: 16 }, { time: 110, flips: 24 }, { time: 160, flips: 38 }],
+    lasers: [
+      { x: 12 * 32, y1: 1 * 32, y2: 24 * 32, speed: 2.8, vertical: true, wobble: 0.5, width: 5, angle: 0.3 },
+      { x: 25 * 32, y1: 1 * 32, y2: 24 * 32, speed: 2.0, vertical: true, pulse: true, angle: -0.2 },
+      { y: 8 * 32, x1: 5 * 32, x2: 65 * 32, speed: 2.5, horizontal: true, width: 5, angle: 0.15 },
+      { x: 40 * 32, y1: 1 * 32, y2: 24 * 32, speed: 3.2, vertical: true, width: 7, angle: 0.35 },
+      { y: 17 * 32, x1: 15 * 32, x2: 60 * 32, speed: 1.8, horizontal: true, wobble: 0.4, angle: -0.2 },
+      { x: 58 * 32, y1: 1 * 32, y2: 24 * 32, speed: 2.4, vertical: true, pulse: true, width: 4, angle: 0.25 },
+    ],
+  },
+  // Level 13
+  { name: "SINGULARITÉ", cols: 75, rows: 28, reqOrbs: 10,
+    dataKey: "level-13-singularite",
+    stars: [{ time: 55, flips: 11 }, { time: 80, flips: 18 }, { time: 120, flips: 28 }, { time: 180, flips: 45 }],
+    lasers: [
+      { x: 10 * 32, y1: 1 * 32, y2: 26 * 32, speed: 3.0, vertical: true, wobble: 0.6, width: 5 },
+      { x: 22 * 32, y1: 1 * 32, y2: 26 * 32, speed: 2.0, vertical: true, pulse: true, width: 6 },
+      { y: 9 * 32, x1: 5 * 32, x2: 70 * 32, speed: 2.8, horizontal: true, width: 5 },
+      { x: 38 * 32, y1: 1 * 32, y2: 26 * 32, speed: 3.5, vertical: true, width: 8 },
+      { y: 16 * 32, x1: 10 * 32, x2: 65 * 32, speed: 2.2, horizontal: true, wobble: 0.5, width: 4 },
+      { x: 55 * 32, y1: 1 * 32, y2: 26 * 32, speed: 2.6, vertical: true, pulse: true },
+      { x: 66 * 32, y1: 1 * 32, y2: 26 * 32, speed: 2.0, vertical: true, wobble: 0.7, width: 6 },
+    ],
+  },
+];
+
+const _challengeMeta = [
+  // Challenge 1
+  { name: "ENFER", cols: 50, rows: 18, reqOrbs: 5,
+    dataKey: "challenge-01-enfer",
+    stars: [{ time: 25, flips: 4 }, { time: 40, flips: 8 }, { time: 60, flips: 14 }, { time: 90, flips: 22 }],
+    lasers: [
+      { x: 12 * 32, y1: 1 * 32, y2: 16 * 32, speed: 3.0, vertical: true, width: 6, angle: 0.3 },
+      { x: 25 * 32, y1: 1 * 32, y2: 16 * 32, speed: 3.5, vertical: true, pulse: true, width: 5, angle: -0.25 },
+      { x: 38 * 32, y1: 1 * 32, y2: 16 * 32, speed: 2.8, vertical: true, wobble: 0.7, angle: 0.35 },
+      { y: 8 * 32, x1: 3 * 32, x2: 47 * 32, speed: 3.0, horizontal: true, width: 5, angle: -0.2 },
+    ],
+  },
+  // Challenge 2
+  { name: "CAUCHEMAR", cols: 55, rows: 20, reqOrbs: 6,
+    dataKey: "challenge-02-cauchemar",
+    stars: [{ time: 30, flips: 5 }, { time: 45, flips: 10 }, { time: 70, flips: 18 }, { time: 100, flips: 28 }],
+    lasers: [
+      { x: 10 * 32, y1: 1 * 32, y2: 18 * 32, speed: 3.2, vertical: true, width: 6, wobble: 0.5, angle: 0.3 },
+      { x: 22 * 32, y1: 1 * 32, y2: 18 * 32, speed: 2.8, vertical: true, pulse: true, angle: -0.35 },
+      { y: 7 * 32, x1: 3 * 32, x2: 52 * 32, speed: 3.5, horizontal: true, width: 5, angle: 0.2 },
+      { x: 36 * 32, y1: 1 * 32, y2: 18 * 32, speed: 3.8, vertical: true, width: 7, angle: 0.4 },
+      { y: 13 * 32, x1: 5 * 32, x2: 50 * 32, speed: 2.5, horizontal: true, wobble: 0.6, width: 4, angle: -0.25 },
+      { x: 48 * 32, y1: 1 * 32, y2: 18 * 32, speed: 3.0, vertical: true, pulse: true, width: 5, angle: 0.3 },
+    ],
+  },
+  // Challenge 3
+  { name: "APOCALYPSE", cols: 65, rows: 22, reqOrbs: 7,
+    dataKey: "challenge-03-apocalypse",
+    stars: [{ time: 35, flips: 6 }, { time: 55, flips: 12 }, { time: 80, flips: 20 }, { time: 120, flips: 32 }],
+    lasers: [
+      { x: 10 * 32, y1: 1 * 32, y2: 20 * 32, speed: 3.5, vertical: true, width: 6, wobble: 0.6, angle: 0.35 },
+      { x: 20 * 32, y1: 1 * 32, y2: 20 * 32, speed: 3.0, vertical: true, pulse: true, width: 7, angle: -0.4 },
+      { y: 6 * 32, x1: 3 * 32, x2: 62 * 32, speed: 3.8, horizontal: true, width: 5, angle: 0.25 },
+      { x: 33 * 32, y1: 1 * 32, y2: 20 * 32, speed: 4.0, vertical: true, width: 8, angle: 0.45 },
+      { y: 12 * 32, x1: 5 * 32, x2: 60 * 32, speed: 3.0, horizontal: true, wobble: 0.7, width: 5, angle: -0.3 },
+      { x: 45 * 32, y1: 1 * 32, y2: 20 * 32, speed: 3.5, vertical: true, pulse: true, width: 6, angle: 0.35 },
+      { x: 56 * 32, y1: 1 * 32, y2: 20 * 32, speed: 2.8, vertical: true, wobble: 0.8, width: 5, angle: -0.4 },
+    ],
+  },
+  // Challenge 4
+  { name: "EXTINCTION", cols: 70, rows: 24, reqOrbs: 8,
+    dataKey: "challenge-04-extinction",
+    stars: [{ time: 40, flips: 8 }, { time: 60, flips: 14 }, { time: 90, flips: 24 }, { time: 140, flips: 40 }],
+    lasers: [
+      { x: 8 * 32, y1: 1 * 32, y2: 22 * 32, speed: 3.8, vertical: true, width: 7, wobble: 0.7, angle: 0.4 },
+      { x: 18 * 32, y1: 1 * 32, y2: 22 * 32, speed: 3.2, vertical: true, pulse: true, width: 6, angle: -0.45 },
+      { y: 5 * 32, x1: 3 * 32, x2: 67 * 32, speed: 4.0, horizontal: true, width: 6, angle: 0.3 },
+      { x: 30 * 32, y1: 1 * 32, y2: 22 * 32, speed: 4.5, vertical: true, width: 8, angle: 0.5 },
+      { y: 10 * 32, x1: 5 * 32, x2: 65 * 32, speed: 3.5, horizontal: true, wobble: 0.8, width: 5, angle: -0.35 },
+      { x: 42 * 32, y1: 1 * 32, y2: 22 * 32, speed: 3.0, vertical: true, pulse: true, width: 7, angle: 0.4 },
+      { y: 14 * 32, x1: 8 * 32, x2: 62 * 32, speed: 3.8, horizontal: true, width: 5, angle: -0.3 },
+      { x: 58 * 32, y1: 1 * 32, y2: 22 * 32, speed: 3.5, vertical: true, wobble: 0.9, width: 6, angle: 0.45 },
+    ],
+  },
+];
