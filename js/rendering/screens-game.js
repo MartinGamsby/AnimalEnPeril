@@ -180,6 +180,12 @@ function drawTitle() {
   if (titleMenuIdx === optIdx && blink) ctx.fillStyle = COL.MAGENTA;
   ctx.fillText('Options', W / 2, menuY + 35 * optIdx);
 
+  const creditsIdx = optIdx + 1;
+  ctx.font = titleMenuIdx === creditsIdx ? 'bold 22px monospace' : '18px monospace';
+  ctx.fillStyle = titleMenuIdx === creditsIdx ? '#fff' : '#556';
+  if (titleMenuIdx === creditsIdx && blink) ctx.fillStyle = COL.CYAN;
+  ctx.fillText('Crédits', W / 2, menuY + 35 * creditsIdx);
+
   ctx.font = '13px monospace';
   ctx.fillStyle = '#334';
   const hintText = touchUI.show ? 'Utilise les boutons tactiles pour jouer' : '< > / A D  Bouger   |   ESPACE / W  Sauter & Inverser   |   E  Dash   |   SHIFT Gauche  Changer de dimension';
@@ -232,4 +238,49 @@ function drawWin() {
   }
 
   ctx.restore();
+}
+
+function drawCredits() {
+  ctx.fillStyle = COL.BG;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(0,180,255,0.04)';
+  ctx.lineWidth = 1;
+  const off = creditsTime * 0.2;
+  for (let x = -C.TILE + (off % C.TILE); x < W; x += C.TILE) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = -C.TILE + (off % C.TILE); y < H; y += C.TILE) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  if (creditsTime % 3 === 0) {
+    emitParticle(rng(0, W), H + 10, rng(-0.3, 0.3), rng(-0.8, -0.3), 80, 'rgba(0,180,255,0.2)', rng(1, 2.5));
+  }
+  drawParticles(0, 0);
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  ctx.font = 'bold 36px monospace';
+  ctx.shadowColor = COL.CYAN;
+  ctx.shadowBlur = 20;
+  ctx.fillStyle = COL.CYAN;
+  ctx.fillText('Crédits', W / 2, H / 2 - 100);
+  ctx.shadowBlur = 0;
+
+  const names = ['Martin Gamsby', 'Léanne Gamsby', 'Elia Gamsby'];
+  names.forEach((name, i) => {
+    ctx.font = '22px monospace';
+    ctx.fillStyle = '#aabbdd';
+    ctx.fillText(name, W / 2, H / 2 - 20 + i * 40);
+  });
+
+  ctx.font = '14px monospace';
+  ctx.fillStyle = '#445';
+  ctx.fillText(touchUI.show ? '' : 'ÉCHAP  retour', W / 2, H / 2 + 120);
+
+  ctx.restore();
+  drawBackButton();
 }

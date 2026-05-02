@@ -2,7 +2,7 @@
 // Main Game Loop & State Management
 // ============================================================
 
-// States: INTRO, TITLE, SELECT, LEVEL_SELECT, CHALLENGE_SELECT, SHOP, OPTIONS, PLAYING, DEAD, LEVEL_COMPLETE, WIN
+// States: INTRO, TITLE, SELECT, LEVEL_SELECT, CHALLENGE_SELECT, SHOP, OPTIONS, CREDITS, PLAYING, DEAD, LEVEL_COMPLETE, WIN
 let state = 'INTRO';
 let levelIdx = 0;
 let level = null;
@@ -21,6 +21,7 @@ let titleMenuIdx = 0;
 let levelSelectIdx = 0;
 let challengeSelectIdx = 0;
 let optionsIdx = 0;
+let creditsTime = 0;
 let lastLevelStars = 0;
 let lastLevelCoins = 0;
 let lastLevelFlips = 0;
@@ -29,8 +30,8 @@ let playingChallenge = false;
 let selectReturnTo = 'PLAYING'; // Where to go after animal SELECT: 'PLAYING', 'LEVEL_SELECT', 'CHALLENGE_SELECT'
 
 function getTitleMenuCount() {
-  // New Game, [Continue], Défis, Shop, Options
-  return SaveManager.hasSave() ? 5 : 4;
+  // New Game, [Continue], Défis, Shop, Options, Crédits
+  return SaveManager.hasSave() ? 6 : 5;
 }
 
 function applyBackground(bg) {
@@ -123,11 +124,15 @@ function gameLoop(ts) {
         state = 'SHOP';
         shopTime = 0;
         Shop.selectedIdx = 0;
-      } else {
+      } else if (titleMenuIdx === (hasSave ? 4 : 3)) {
         // Options
         state = 'OPTIONS';
         optionsTime = 0;
         optionsIdx = 0;
+      } else {
+        // Crédits
+        state = 'CREDITS';
+        creditsTime = 0;
       }
     }
   } else if (state === 'SELECT') {
@@ -429,6 +434,17 @@ function gameLoop(ts) {
         Audio.setMusicVolume(save.musicVolume);
         if (save.musicVolume === 0) Audio.pauseMusic();
       }
+    }
+  } else if (state === 'CREDITS') {
+    creditsTime++;
+    updateParticles();
+    drawCredits();
+    for (const tap of input.taps) {
+      if (tap.x < 120 && tap.y < 60) { input.just.add('Escape'); break; }
+    }
+    if (justPressed('Escape') || justPressed('Enter') || justPressed('Space')) {
+      state = 'TITLE';
+      titleTime = 0;
     }
   } else if (state === 'PLAYING') {
     gameTime++;
