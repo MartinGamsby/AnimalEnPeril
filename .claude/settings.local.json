@@ -5,7 +5,13 @@
       "Write",
       "Read",
       "WebSearch",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(grep -E \"\\\\.\\(js|html|css|json\\)$\")",
+      "Bash(python3 -c ':*)",
+      "Bash(wc -l C:/Users/Martin/Documents/GitHub/AnimalEnPeril/js/*.js)",
+      "Read(//c/Users/Martin/Downloads/**)",
+      "Bash(ls -la \"/c/Users/Martin/Downloads/\"*.mp3)",
+      "Bash(ls \"/c/Users/Martin/Downloads/Smiling Ashes\"*)"
     ]
   }
 }
